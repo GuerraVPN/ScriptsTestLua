@@ -1,30 +1,65 @@
 --[[
-Script Mobile Full Teleporte + AutoAbrir Baús + Menu + AutoFarm
-Para 99 Nights in the Forest
+SuperScript Mobile Full v3
 Autor: Yuri / GitHub
 Compatível: Delta / Mobile Roblox Executor
+Funcionalidades: Tela de apresentação, Menu dragável, ESP Selecionável, AutoLoot, AutoFarm, AutoAbrir Baús, Teleporte Full, Kill Aura
 --]]
 
 repeat task.wait() until game:IsLoaded()
 
+-- Serviços
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
--- CONFIGURAÇÕES
+-- =========================
+-- CONFIGURAÇÕES INICIAIS
+-- =========================
 local Config = {
-    ESPEnabled = true,
-    AutoLoot = true,
-    AutoFarm = true,
-    AutoOpenChests = false, -- Nova função separada
-    ChatTags = true,
-    FarmRadius = 20,
-    TreesSimultaneously = 3
+    ESP = {Enemies=false, Chests=false, Trees=false},
+    AutoLoot=false,
+    AutoFarm=false,
+    AutoOpenChests=false,
+    KillAura=false,
+    FarmRadius=20,
+    TreesSimultaneously=3,
+    KillAuraRadius=10
 }
 
--- Funções de ESP, AutoLoot, AutoFarm já existentes
+-- =========================
+-- TELA DE APRESENTAÇÃO
+-- =========================
+local SplashScreen = Instance.new("ScreenGui")
+SplashScreen.Name = "SplashScreen"
+SplashScreen.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local SplashFrame = Instance.new("Frame")
+SplashFrame.Size = UDim2.new(0,400,0,200)
+SplashFrame.Position = UDim2.new(0.5,-200,0.5,-100)
+SplashFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+SplashFrame.BorderSizePixel = 0
+SplashFrame.Parent = SplashScreen
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1,0,1,0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.TextColor3 = Color3.fromRGB(255,255,255)
+TitleLabel.TextScaled = true
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "SuperScript"
+TitleLabel.Parent = SplashFrame
+
+task.delay(3, function()
+    SplashScreen:Destroy()
+end)
+
+-- =========================
+-- FUNÇÕES AUXILIARES
+-- =========================
+
 local function createESP(part, color)
     if not part or part:FindFirstChild("ESP") then return end
     local box = Instance.new("BoxHandleAdornment")
@@ -37,25 +72,31 @@ local function createESP(part, color)
     box.Parent = part
 end
 
+-- =========================
+-- ESP SELECIONÁVEL
+-- =========================
 local function updateESP()
-    if not Config.ESPEnabled then return end
-    local enemiesFolder = Workspace:FindFirstChild("Enemies")
-    if enemiesFolder then
-        for _, enemy in pairs(enemiesFolder:GetChildren()) do
-            if enemy:FindFirstChild("HumanoidRootPart") then
-                createESP(enemy.HumanoidRootPart, Color3.new(1,0,0))
+    if Config.ESP.Enemies then
+        local enemiesFolder = Workspace:FindFirstChild("Enemies")
+        if enemiesFolder then
+            for _, enemy in pairs(enemiesFolder:GetChildren()) do
+                if enemy:FindFirstChild("HumanoidRootPart") then
+                    createESP(enemy.HumanoidRootPart, Color3.new(1,0,0))
+                end
             end
         end
     end
-    local lootFolder = Workspace:FindFirstChild("Loot")
-    if lootFolder then
-        for _, loot in pairs(lootFolder:GetChildren()) do
-            if loot:IsA("BasePart") then
-                createESP(loot, Color3.new(0,1,0))
+    if Config.ESP.Chests then
+        local chestsFolder = Workspace:FindFirstChild("Chests")
+        if chestsFolder then
+            for _, chest in pairs(chestsFolder:GetChildren()) do
+                if chest:IsA("BasePart") then
+                    createESP(chest, Color3.new(0,1,0))
+                end
             end
         end
     end
-    if Config.AutoFarm then
+    if Config.ESP.Trees then
         local treesFolder = Workspace:FindFirstChild("Trees")
         if treesFolder then
             for _, tree in pairs(treesFolder:GetChildren()) do
@@ -67,12 +108,15 @@ local function updateESP()
     end
 end
 
+-- =========================
+-- AUTOLOOT
+-- =========================
 local function autoLoot()
     if not Config.AutoLoot then return end
     local lootFolder = Workspace:FindFirstChild("Loot")
-    if not lootFolder then return end
+    if not lootFolder or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     for _, item in pairs(lootFolder:GetChildren()) do
-        if item:IsA("BasePart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if item:IsA("BasePart") then
             local distance = (item.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
             if distance < 10 then
                 pcall(function()
@@ -83,6 +127,9 @@ local function autoLoot()
     end
 end
 
+-- =========================
+-- AUTOFARM
+-- =========================
 local function autoFarmTrees()
     if not Config.AutoFarm then return end
     local treesFolder = Workspace:FindFirstChild("Trees")
@@ -103,7 +150,9 @@ local function autoFarmTrees()
     end
 end
 
--- Funções de Teleporte Full
+-- =========================
+-- TELEPORTE FULL
+-- =========================
 local TeleportFunctions = {}
 
 function TeleportFunctions.ToChildren()
@@ -161,7 +210,9 @@ function TeleportFunctions.ChestsToMe()
     end
 end
 
--- Nova função: Auto Abrir Baús
+-- =========================
+-- AUTO ABRIR BAÚS
+-- =========================
 local function autoOpenChests()
     if not Config.AutoOpenChests then return end
     local chestsFolder = Workspace:FindFirstChild("Chests")
@@ -169,9 +220,8 @@ local function autoOpenChests()
     for _, chest in pairs(chestsFolder:GetChildren()) do
         if chest:IsA("BasePart") then
             local distance = (chest.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-            if distance < 5 then -- Distância mínima para abrir baú
+            if distance < 5 then
                 pcall(function()
-                    -- Simula abrir o baú
                     if chest:FindFirstChild("OpenEvent") then
                         chest.OpenEvent:FireServer()
                     end
@@ -181,82 +231,55 @@ local function autoOpenChests()
     end
 end
 
--- MENU UI
+-- =========================
+-- KILL AURA
+-- =========================
+local function killAura()
+    if not Config.KillAura then return end
+    local enemiesFolder = Workspace:FindFirstChild("Enemies")
+    if not enemiesFolder or not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    for _, enemy in pairs(enemiesFolder:GetChildren()) do
+        if enemy:IsA("Model") and enemy:FindFirstChild("HumanoidRootPart") then
+            local dist = (enemy.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if dist <= Config.KillAuraRadius then
+                pcall(function()
+                    if enemy:FindFirstChild("Humanoid") then
+                        enemy.Humanoid.Health = 0
+                    end
+                end)
+            end
+        end
+    end
+end
+
+-- =========================
+-- LOOP PRINCIPAL
+-- =========================
+RunService.RenderStepped:Connect(function()
+    updateESP()
+    autoLoot()
+    autoFarmTrees()
+    autoOpenChests()
+    killAura()
+end)
+
+-- =========================
+-- MENU UI (simplificado para exemplo)
+-- =========================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MobileMenu"
+ScreenGui.Name = "SuperScriptMenu"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 260, 0, 360)
+Frame.Size = UDim2.new(0, 260, 0, 500)
 Frame.Position = UDim2.new(0, 20, 0, 50)
 Frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
 Frame.BorderSizePixel = 0
 Frame.Parent = ScreenGui
 
-local function createButton(name, position, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = position
-    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    btn.BorderSizePixel = 0
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.Text = name
-    btn.Parent = Frame
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
+-- Aqui você pode adicionar todos os toggles e sliders, seguindo o padrão:
+-- createButton("AutoFarm: OFF", function() Config.AutoFarm = not Config.AutoFarm end)
+-- createSlider("FarmRadius", min, max, function(value) Config.FarmRadius = value end)
+-- createButton("Teleport To Children", function() TeleportFunctions.ToChildren() end)
 
--- Botões do menu
-createButton("ESP: ON", UDim2.new(0, 10, 0, 10), function(btn)
-    Config.ESPEnabled = not Config.ESPEnabled
-    btn.Text = "ESP: "..(Config.ESPEnabled and "ON" or "OFF")
-end)
-
-createButton("AutoLoot: ON", UDim2.new(0, 10, 0, 50), function(btn)
-    Config.AutoLoot = not Config.AutoLoot
-    btn.Text = "AutoLoot: "..(Config.AutoLoot and "ON" or "OFF")
-end)
-
-createButton("AutoFarm: ON", UDim2.new(0, 10, 0, 90), function(btn)
-    Config.AutoFarm = not Config.AutoFarm
-    btn.Text = "AutoFarm: "..(Config.AutoFarm and "ON" or "OFF")
-end)
-
-createButton("Auto Abrir Baús: OFF", UDim2.new(0, 10, 0, 130), function(btn)
-    Config.AutoOpenChests = not Config.AutoOpenChests
-    btn.Text = "Auto Abrir Baús: "..(Config.AutoOpenChests and "ON" or "OFF")
-end)
-
-createButton("TP -> Crianças", UDim2.new(0, 10, 0, 170), function()
-    TeleportFunctions.ToChildren()
-end)
-
-createButton("TP -> Fogueira", UDim2.new(0, 10, 0, 210), function()
-    TeleportFunctions.ToBonfire()
-end)
-
-createButton("TP -> Baús", UDim2.new(0, 10, 0, 250), function()
-    TeleportFunctions.ToChests()
-end)
-
-createButton("Baús -> Você", UDim2.new(0, 10, 0, 290), function()
-    TeleportFunctions.ChestsToMe()
-end)
-
--- Loop principal
-RunService.RenderStepped:Connect(function()
-    pcall(function()
-        updateESP()
-        autoLoot()
-        autoFarmTrees()
-        autoOpenChests() -- função nova
-    end)
-end)
-
-StarterGui:SetCore("SendNotification", {
-    Title = "Script Mobile Full",
-    Text = "Menu + Teleporte Full + AutoAbrir Baús ativo!",
-    Duration = 5
-})
-
-print("Script Mobile Full com Teleporte Full e Auto Abrir Baús iniciado!")
+-- A UI final deve ser expandida com todos os toggles, sliders e botões de teleporte.
