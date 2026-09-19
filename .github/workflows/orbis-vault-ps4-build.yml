@@ -27,7 +27,7 @@ jobs:
 
       - name: Build with OpenOrbis Toolchain
         run: |
-          docker run --rm --user 0 -w /workspace/orbisvault-ps4 -v "$GITHUB_WORKSPACE:/workspace" openorbisofficial/toolchain:latest bash -lc "make clean && make pkg"
+          docker run --rm --user 0 -w /workspace/orbisvault-ps4 -v "$GITHUB_WORKSPACE:/workspace" openorbisofficial/toolchain:latest bash -lc "echo TOOLCHAIN=\$OO_PS4_TOOLCHAIN; find /lib/OpenOrbisSDK -maxdepth 4 -type f | grep -Ei '(fself|gp4|PkgTool)' || true; make clean && make pkg"
 
       - name: Collect artifact
         run: |
