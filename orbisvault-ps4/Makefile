@@ -12,7 +12,7 @@ NATIVE_INSTALL ?= 0
 # before standard C++ headers are parsed.
 EXTRAFLAGS := -include compat.hpp
 
-LIBS := -lc -lkernel -lc++ -lcurl
+LIBS := -lc -lkernel -lc++ -lSceNet -lSceSsl -lSceHttp -lSceSysmodule
 
 ifeq ($(NATIVE_INSTALL),1)
     EXTRAFLAGS += -DORBIS_VAULT_NATIVE_INSTALL
