@@ -56,24 +56,24 @@ all: eboot.bin
 pkg: $(CONTENT_ID).pkg
 
 $(CONTENT_ID).pkg: pkg.gp4
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core pkg_build $< .
+	PkgTool.Core pkg_build $< .
 
 pkg.gp4: eboot.bin sce_sys/param.sfo sce_sys/icon0.png $(LIBMODULES) $(ASSETS)
-	$(TOOLCHAIN)/bin/$(CDIR)/create-gp4 -out $@ --content-id=$(CONTENT_ID) --files "$^"
+	create-gp4 -out $@ --content-id=$(CONTENT_ID) --files "$^"
 
 sce_sys/param.sfo: Makefile
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_new $@
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ APP_TYPE --type Integer --maxsize 4 --value 1
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ APP_VER --type Utf8 --maxsize 8 --value '$(VERSION)'
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ CATEGORY --type Utf8 --maxsize 4 --value 'gd'
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ CONTENT_ID --type Utf8 --maxsize 48 --value '$(CONTENT_ID)'
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ TITLE --type Utf8 --maxsize 128 --value '$(TITLE)'
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ TITLE_ID --type Utf8 --maxsize 12 --value '$(TITLE_ID)'
-	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ VERSION --type Utf8 --maxsize 8 --value '$(VERSION)'
+	PkgTool.Core sfo_new $@
+	PkgTool.Core sfo_setentry $@ APP_TYPE --type Integer --maxsize 4 --value 1
+	PkgTool.Core sfo_setentry $@ APP_VER --type Utf8 --maxsize 8 --value '$(VERSION)'
+	PkgTool.Core sfo_setentry $@ CATEGORY --type Utf8 --maxsize 4 --value 'gd'
+	PkgTool.Core sfo_setentry $@ CONTENT_ID --type Utf8 --maxsize 48 --value '$(CONTENT_ID)'
+	PkgTool.Core sfo_setentry $@ TITLE --type Utf8 --maxsize 128 --value '$(TITLE)'
+	PkgTool.Core sfo_setentry $@ TITLE_ID --type Utf8 --maxsize 12 --value '$(TITLE_ID)'
+	PkgTool.Core sfo_setentry $@ VERSION --type Utf8 --maxsize 8 --value '$(VERSION)'
 
 eboot.bin: $(OBJS)
 	$(LD) $(OBJS) -o $(INTDIR)/orbis-vault.elf $(LDFLAGS)
-	$(TOOLCHAIN)/bin/$(CDIR)/create-fself -in=$(INTDIR)/orbis-vault.elf -out=$(INTDIR)/orbis-vault.oelf --eboot eboot.bin --paid 0x3800000000000011
+	create-fself -in=$(INTDIR)/orbis-vault.elf -out=$(INTDIR)/orbis-vault.oelf --eboot eboot.bin --paid 0x3800000000000011
 
 $(INTDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -o $@ $<
