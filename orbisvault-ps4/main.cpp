@@ -150,6 +150,16 @@ int main() {
             }
         }
 
+        if (action.type == UiActionType::CancelInstall) {
+            InstallSnapshot activeJob = coordinator.snapshot();
+            if (activeJob.active) {
+                coordinator.cancel();
+                uiStatus.message = "CANCELANDO DOWNLOAD";
+            } else {
+                uiStatus.message = "NENHUM DOWNLOAD ATIVO";
+            }
+        }
+
         if (action.type == UiActionType::OpenSelected &&
             action.titleIndex >= 0 &&
             action.titleIndex < static_cast<int>(catalog.titles.size())) {
