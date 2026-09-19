@@ -78,25 +78,35 @@ async function requireDevice(request, env, expectedDeviceId = null) {
   return { authorized: true, device };
 }
 
+function randomHex(bytes) {
+  const data = new Uint8Array(bytes);
+  crypto.getRandomValues(data);
+  return Array.from(data).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function randomPairCode() {
+  const data = new Uint32Array(1);
+  crypto.getRandomValues(data);
+  return String(data[0] % 1000000).padStart(6, "0");
+}
+
 // PUBLIC: PS4 starts pairing.
-// PS4 itself generates:
-// - device_id
-// - device_token (kept only on PS4)
-// - 6-digit code shown on TV
-// It sends only token_hash + code_hash to the Worker.
+// Worker generates the device token and 6-digit code.
+// Plain token/code are returned only once over HTTPS to the PS4.
+// D1 stores only SHA-256(token) and SHA-256(code).
 async function handleDevicePairStart(request, env) {
   const body = await request.json();
-  const deviceId = body.device_id;
+  const deviceId = String(body.device_id || "");
   const deviceName = String(body.device_name || "PS4").slice(0, 80);
-  const tokenHash = String(body.token_hash || "").toLowerCase();
-  const codeHash = String(body.code_hash || "").toLowerCase();
 
   if (!validDeviceId(deviceId)) {
     return json({ error: "Invalid device_id" }, 400);
   }
-  if (!validHex256(tokenHash) || !validHex256(codeHash)) {
-    return json({ error: "token_hash and code_hash must be SHA-256 hex" }, 400);
-  }
+
+  const deviceToken = randomHex(32);
+  const pairCode = randomPairCode();
+  const tokenHash = await sha256Hex(deviceToken);
+  const codeHash = await sha256Hex(pairCode);
 
   await env.DB.prepare(
     `INSERT INTO devices (device_id, device_name, token_hash, paired, enabled, last_seen)
@@ -120,6 +130,8 @@ async function handleDevicePairStart(request, env) {
 
   return json({
     device_id: deviceId,
+    device_token: deviceToken,
+    pairing_code: pairCode,
     expires_in: 600,
     message: "Pairing started"
   }, 201);
