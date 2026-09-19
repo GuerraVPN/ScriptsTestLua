@@ -18,6 +18,7 @@ enum class UiActionType {
     None,
     RefreshCatalog,
     InstallSelected,
+    OpenSelected,
     StartPairing,
     Exit
 };
