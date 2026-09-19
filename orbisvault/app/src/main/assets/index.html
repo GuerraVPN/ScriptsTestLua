@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#020817">
+<title>Orbis Vault Admin</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#020817;color:#f4f8ff;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+:root{--bg:#020817;--panel:#07162a;--panel2:#0a2441;--line:#153656;--blue:#168cff;--cyan:#35c8ff;--muted:#9fb5cd;--green:#1fd38a;--red:#ff5263;--amber:#ffbd4a}
+button,input,textarea,select{font:inherit}.hidden{display:none!important}
+.screen{min-height:100%;background:radial-gradient(circle at 75% -5%,#0b3f7a 0,#041327 28%,#020817 62%)}
+#splash{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+.orbit{width:110px;height:110px;border:3px solid var(--blue);border-radius:50%;position:relative;box-shadow:0 0 45px #168cff88,inset 0 0 30px #168cff33}
+.orbit:before{content:"";position:absolute;left:-18px;right:-18px;top:49px;height:3px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);transform:rotate(-18deg);box-shadow:0 0 16px var(--cyan)}
+.logo{font-size:32px;letter-spacing:4px;font-weight:800}.logo b{color:var(--cyan)}.tag{color:var(--muted);font-size:12px;letter-spacing:3px;text-transform:uppercase}
+.loader{width:180px;height:6px;background:#0a2441;border-radius:10px;overflow:hidden}.loader i{display:block;width:70%;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));animation:load 1.25s ease-in-out infinite}
+@keyframes load{0%{transform:translateX(-100%)}100%{transform:translateX(150%)}}
+#login{display:flex;align-items:center;justify-content:center;padding:28px}.loginbox{width:100%;max-width:440px}.mini{margin:auto auto 22px;width:70px;height:70px}.loginbox h1{text-align:center;margin:8px 0}.loginbox p{text-align:center;color:var(--muted)}
+.field{width:100%;margin:10px 0;padding:14px 15px;border-radius:12px;border:1px solid var(--line);background:#08182b;color:white;outline:none}.field:focus{border-color:var(--blue);box-shadow:0 0 0 2px #168cff22}
+.primary{width:100%;border:0;border-radius:12px;padding:14px;background:linear-gradient(90deg,#087cff,#22a8ff);color:white;font-weight:800;box-shadow:0 10px 28px #087cff33}.secondary{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px;background:#091a2e;color:#d8e8f9}
+.note{padding:12px;border-radius:12px;background:#0b223b;border:1px solid #17416a;color:#b9d4ed;font-size:12px;margin:14px 0}
+#app{padding-bottom:76px}.top{position:sticky;top:0;z-index:5;padding:18px 18px 10px;background:linear-gradient(#020817 72%,transparent)}.topline{display:flex;justify-content:space-between;align-items:center}.brand{font-weight:900;letter-spacing:1px}.brand b{color:var(--cyan)}.avatar{width:38px;height:38px;border-radius:50%;background:#0d3157;display:grid;place-items:center;border:1px solid #1a4f7d}
+.content{padding:0 16px 20px}.content h2{margin:10px 0 2px}.sub{color:var(--muted);font-size:13px;margin:0 0 16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:linear-gradient(145deg,#0a2441,#07162a);border:1px solid var(--line);border-radius:16px;padding:15px;box-shadow:0 12px 30px #0005}.stat strong{display:block;font-size:26px;margin-top:6px}.stat small{color:var(--muted)}.stat .ico{font-size:24px}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin:22px 2px 10px}.section-title b{font-size:16px}.link{color:var(--cyan);font-size:12px}
+.game{display:flex;gap:12px;align-items:center;padding:12px;margin:8px 0;background:#07162a;border:1px solid var(--line);border-radius:14px}.cover{width:54px;height:68px;border-radius:9px;background:linear-gradient(145deg,#0a5ca9,#071426);display:grid;place-items:center;font-size:25px;flex:0 0 auto}.game-info{flex:1;min-width:0}.game-info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.game-info small{display:block;color:var(--muted);margin-top:3px}.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.chips{display:flex;gap:8px;overflow:auto;padding-bottom:6px}.chip{white-space:nowrap;border:1px solid var(--line);background:#07162a;color:#bdd1e5;border-radius:999px;padding:8px 12px}.chip.active{background:#0d63b9;border-color:#168cff;color:#fff}
+.search{position:relative}.search input{padding-left:42px}.search:before{content:"⌕";position:absolute;left:15px;top:22px;color:var(--muted);z-index:1;font-size:20px}
+.tabs{display:flex;gap:6px;overflow:auto;margin:10px 0 14px}.tab{border:0;border-radius:999px;padding:9px 12px;background:#091a2e;color:#aac1d8;white-space:nowrap}.tab.active{background:var(--blue);color:white}
+.form-card{background:#07162a;border:1px solid var(--line);border-radius:16px;padding:14px}.label{display:block;color:#b6cae0;font-size:12px;margin:12px 2px 4px}.area{min-height:85px;resize:vertical}
+.row{display:flex;gap:10px}.row>*{flex:1}.btnrow{display:flex;gap:10px;margin-top:14px}.btnrow button{flex:1}
+.package{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;margin:8px 0;background:#081a2e}.package .type{font-size:11px;color:var(--cyan);font-weight:800}.package .meta{flex:1}.package .meta small{display:block;color:var(--muted)}.danger{color:var(--red);background:transparent;border:0;font-size:20px}
+.status{padding:14px;border-radius:14px;background:#07162a;border:1px solid var(--line);margin:10px 0}.statusline{display:flex;align-items:center;gap:12px}.statusline .big{font-size:28px}.pill{display:inline-block;border-radius:999px;padding:5px 9px;font-size:11px}.ok{background:#083927;color:#55e6a9}.warn{background:#43320a;color:#ffd46c}.off{background:#351019;color:#ff7d8b}
+.menuitem{display:flex;align-items:center;gap:13px;padding:15px;margin:7px 0;border:1px solid var(--line);border-radius:14px;background:#07162a}.menuitem .mi{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:#0d3157}.menuitem .mt{flex:1}.menuitem small{color:var(--muted);display:block;margin-top:2px}.chev{color:var(--cyan);font-size:24px}
+.bottom{position:fixed;left:0;right:0;bottom:0;height:70px;padding-bottom:max(4px,env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(5,1fr);background:#061223ee;border-top:1px solid #143557;backdrop-filter:blur(10px);z-index:20}.nav{border:0;background:transparent;color:#8da8c4;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.nav span{font-size:21px}.nav.active{color:#44b9ff}.nav.add span{width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:var(--blue);color:white;font-size:28px;margin-top:-18px;box-shadow:0 6px 20px #168cff66}
+.toast{position:fixed;left:18px;right:18px;bottom:84px;background:#0b2b48;border:1px solid #1c5d93;color:#e6f5ff;padding:13px 15px;border-radius:13px;z-index:40;transform:translateY(180px);transition:.25s}.toast.show{transform:translateY(0)}
+.modal{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-end}.sheet{width:100%;max-height:85%;overflow:auto;background:#061426;border-radius:24px 24px 0 0;border-top:1px solid #1b4a74;padding:18px}
+.kv{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #12304d}.muted{color:var(--muted)}.blue{color:var(--cyan)}.green{color:var(--green)}
+@media(min-width:700px){.content,.top{max-width:720px;margin:auto}.bottom{left:50%;transform:translateX(-50%);max-width:720px;border-left:1px solid #143557;border-right:1px solid #143557}}
+</style>
+</head>
+<body>
+<div id="splash" class="screen">
+  <div class="orbit"></div><div class="logo">ORBIS <b>VAULT</b></div>
+  <div class="tag">Gerencie seu catálogo PS4</div><div class="loader"><i></i></div>
+  <small style="color:#718aa5">v0.2.0</small>
+</div>
+
+<div id="login" class="screen hidden">
+  <div class="loginbox">
+    <div class="orbit mini"></div><div class="logo" style="text-align:center;font-size:25px">ORBIS <b>VAULT</b></div>
+    <h1>Entre na sua conta</h1><p>Painel administrativo do seu catálogo.</p>
+    <input id="loginEmail" class="field" type="email" placeholder="E-mail">
+    <input id="loginPass" class="field" type="password" placeholder="Senha">
+    <button class="primary" onclick="login()">Entrar</button>
+    <div class="note">🧪 Esta é a versão de teste. O login ainda é local e não envia sua senha para nenhum servidor. A autenticação real será ativada quando o backend Cloudflare estiver publicado.</div>
+  </div>
+</div>
+
+<div id="app" class="screen hidden">
+  <header class="top">
+    <div class="topline"><div class="brand">ORBIS <b>VAULT</b> <small style="color:#6587a8">ADMIN</small></div><div class="avatar">👤</div></div>
+  </header>
+  <main id="view" class="content"></main>
+  <nav class="bottom">
+    <button class="nav active" data-view="home" onclick="go('home',this)"><span>⌂</span>Início</button>
+    <button class="nav" data-view="games" onclick="go('games',this)"><span>🎮</span>Jogos</button>
+    <button class="nav add" data-view="add" onclick="go('add',this)"><span>＋</span>Adicionar</button>
+    <button class="nav" data-view="sync" onclick="go('sync',this)"><span>⇅</span>Transferência</button>
+    <button class="nav" data-view="more" onclick="go('more',this)"><span>•••</span>Mais</button>
+  </nav>
+</div>
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()"><div id="sheet" class="sheet"></div></div>
+
+<script>
+var demo=[
+ {id:1,name:"Exemplo Homebrew",titleId:"BREW00001",category:"Homebrew",base:"1.00",baseUrl:"https://exemplo/base.pkg",updates:[{v:"1.10",url:"https://exemplo/update.pkg"}],dlcs:[{n:"Addon de exemplo",url:"https://exemplo/dlc.pkg"}]},
+ {id:2,name:"Utilitário PS4",titleId:"BREW00002",category:"Utilitário",base:"2.1",baseUrl:"https://exemplo/util.pkg",updates:[],dlcs:[]},
+ {id:3,name:"Pacote de demonstração",titleId:"DEMO00003",category:"PS4",base:"1.00",baseUrl:"",updates:[{v:"1.02",url:""}],dlcs:[{n:"Conteúdo adicional",url:""}]}
+];
+function getGames(){try{var x=JSON.parse(localStorage.getItem("ov_games"));return Array.isArray(x)&&x.length?x:demo}catch(e){return demo}}
+function saveGames(x){localStorage.setItem("ov_games",JSON.stringify(x))}
+function esc(s){return String(s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function toast(t){var el=document.getElementById("toast");el.textContent=t;el.classList.add("show");setTimeout(function(){el.classList.remove("show")},2200)}
+setTimeout(function(){document.getElementById("splash").classList.add("hidden");document.getElementById("login").classList.remove("hidden")},1200);
+function login(){var e=document.getElementById("loginEmail").value.trim();var p=document.getElementById("loginPass").value;if(!e||!p){toast("Informe e-mail e senha.");return}sessionStorage.setItem("ov_login","1");document.getElementById("login").classList.add("hidden");document.getElementById("app").classList.remove("hidden");render("home")}
+function go(v,btn){document.querySelectorAll(".nav").forEach(function(n){n.classList.remove("active")});if(btn)btn.classList.add("active");render(v)}
+function stats(){var g=getGames(),u=0,d=0;g.forEach(function(x){u+=(x.updates||[]).length;d+=(x.dlcs||[]).length});return {g:g.length,u:u,d:d}}
+function gameRow(g){return '<div class="game" onclick="details('+g.id+')"><div class="cover">🎮</div><div class="game-info"><b>'+esc(g.name)+'</b><small>'+esc(g.titleId)+' • v'+esc(g.base)+'</small><small>'+esc(g.category||"PS4")+'</small></div><i class="dot"></i></div>'}
+function render(v){
+ var el=document.getElementById("view"),g=getGames(),s=stats();
+ if(v==="home"){
+   el.innerHTML='<h2>Olá 👋</h2><p class="sub">Gerencie seu catálogo e mantenha o PS4 sincronizado.</p>'+
+   '<div class="grid"><div class="card stat"><div class="ico">🎮</div><small>Jogos cadastrados</small><strong>'+s.g+'</strong></div>'+
+   '<div class="card stat"><div class="ico">🔄</div><small>Updates</small><strong>'+s.u+'</strong></div>'+
+   '<div class="card stat"><div class="ico">🧩</div><small>DLCs</small><strong>'+s.d+'</strong></div>'+
+   '<div class="card stat"><div class="ico">☁️</div><small>Cloudflare</small><strong style="font-size:16px;color:#ffbd4a">Pendente</strong></div></div>'+
+   '<div class="section-title"><b>Últimos adicionados</b><span class="link" onclick="go(\'games\',document.querySelector(\'[data-view=games]\'))">Ver todos</span></div>'+g.slice(-4).reverse().map(gameRow).join('');
+ } else if(v==="games"){
+   el.innerHTML='<h2>Lista de Jogos</h2><p class="sub">Pesquise e organize o catálogo.</p><div class="search"><input id="q" class="field" placeholder="Pesquisar jogos..." oninput="filterGames()"></div>'+
+   '<div class="chips"><button class="chip active">Todos</button><button class="chip">PS4</button><button class="chip">Homebrew</button><button class="chip">Utilitários</button></div><div id="gamesList">'+g.map(gameRow).join('')+'</div>';
+ } else if(v==="add"){
+   addView(0);
+ } else if(v==="sync"){
+   el.innerHTML='<h2>Transferência / Sincronizar</h2><p class="sub">Publique o catálogo e atualize o aplicativo do PS4.</p>'+
+   '<div class="status"><div class="statusline"><div class="big">🎮</div><div style="flex:1"><b>PS4</b><div class="muted">Cliente ainda não configurado</div></div><span class="pill off">Offline</span></div></div>'+
+   '<div class="status"><div class="statusline"><div class="big">☁️</div><div style="flex:1"><b>Cloudflare API</b><div class="muted">Worker / D1 / R2</div></div><span class="pill warn">Pendente</span></div></div>'+
+   '<button class="primary" onclick="simulateSync()">Sincronizar Catálogo</button><div style="height:10px"></div><button class="secondary" onclick="toast(\'Teste de conexão: backend ainda não publicado.\')">Verificar Conexão</button>'+
+   '<div class="section-title"><b>Como funcionará</b></div><div class="card"><div class="kv"><span>Admin Android</span><span class="blue">Publica</span></div><div class="kv"><span>Cloudflare</span><span class="blue">Armazena catálogo</span></div><div class="kv"><span>Orbis Vault PS4</span><span class="green">Sincroniza</span></div></div>';
+ } else {
+   el.innerHTML='<h2>Mais</h2><p class="sub">Configurações e ferramentas.</p>'+
+   menu("👤","Conta","Gerencie sua conta","Conta de teste local")+
+   menu("☁️","Servidor","URL da API e conexão","Cloudflare ainda não conectado")+
+   menu("🎨","Aparência","Tema, cores e idioma","Português • Escuro")+
+   menu("🔔","Notificações","Novos jogos e atualizações","Ativadas")+
+   menu("🔄","Sincronização automática","Verificar novas versões","A cada 6 horas")+
+   menu("💾","Backup do catálogo","Exportar dados locais","")+
+   menu("📊","Relatório","Estatísticas do catálogo","")+
+   menu("ℹ️","Sobre","Orbis Vault Admin v0.2.0","Build de teste");
+ }
+}
+function menu(i,t,s,r){return '<div class="menuitem" onclick="toast(\''+esc(t)+'\')"><div class="mi">'+i+'</div><div class="mt"><b>'+t+'</b><small>'+s+'</small>'+(r?'<small class="blue">'+r+'</small>':'')+'</div><div class="chev">›</div></div>'}
+function filterGames(){var q=document.getElementById("q").value.toLowerCase();var arr=getGames().filter(function(g){return (g.name+" "+g.titleId+" "+g.category).toLowerCase().indexOf(q)>=0});document.getElementById("gamesList").innerHTML=arr.map(gameRow).join('')||'<div class="note">Nenhum jogo encontrado.</div>'}
+function addView(tab){
+ var names=["Informações","Base","Updates","DLCs"];
+ var tabs='<div class="tabs">'+names.map(function(n,i){return '<button class="tab '+(i===tab?'active':'')+'" onclick="addView('+i+')">'+n+'</button>'}).join('')+'</div>';
+ var body='';
+ if(tab===0) body='<div class="form-card"><label class="label">Capa</label><button class="secondary" onclick="toast(\'Upload de capa entra na próxima etapa com R2.\')">🖼️ Selecionar capa</button><label class="label">Nome do jogo</label><input id="fName" class="field" placeholder="Ex: Meu Homebrew"><label class="label">Title ID</label><input id="fId" class="field" placeholder="Ex: BREW00001"><label class="label">Categoria</label><select id="fCat" class="field"><option>PS4</option><option>Homebrew</option><option>Utilitário</option><option>Emulador</option></select><label class="label">Descrição</label><textarea id="fDesc" class="field area" placeholder="Descrição..."></textarea><button class="primary" onclick="draftInfo()">Próximo →</button></div>';
+ if(tab===1) body='<div class="form-card"><label class="label">Versão Base</label><input id="fBase" class="field" placeholder="Ex: 1.00"><label class="label">Link da Base</label><input id="fBaseUrl" class="field" placeholder="https://..."><label class="label">Tamanho (opcional)</label><input class="field" placeholder="Ex: 42 GB"><button class="primary" onclick="draftBase()">Salvar Base →</button></div>';
+ if(tab===2) body='<div class="form-card"><p class="sub">Uma atualização por linha no formato <b>versão | link</b>.</p><textarea id="fUpdates" class="field area" style="min-height:150px" placeholder="1.01 | https://...&#10;1.05 | https://..."></textarea><button class="primary" onclick="draftUpdates()">Salvar Updates →</button></div>';
+ if(tab===3) body='<div class="form-card"><p class="sub">Um DLC por linha no formato <b>nome | link</b>.</p><textarea id="fDlcs" class="field area" style="min-height:150px" placeholder="Addon 1 | https://...&#10;Addon 2 | https://..."></textarea><button class="primary" onclick="saveDraft()">✓ Salvar Jogo</button></div>';
+ document.getElementById("view").innerHTML='<h2>Adicionar / Editar Jogo</h2><p class="sub">Cadastre Base, Updates e DLCs.</p>'+tabs+body;
+ restoreDraft(tab);
+}
+var draft={};
+function draftInfo(){draft.name=document.getElementById("fName").value.trim();draft.titleId=document.getElementById("fId").value.trim();draft.category=document.getElementById("fCat").value;draft.description=document.getElementById("fDesc").value;if(!draft.name||!draft.titleId){toast("Informe nome e Title ID.");return}addView(1)}
+function draftBase(){draft.base=document.getElementById("fBase").value.trim()||"1.00";draft.baseUrl=document.getElementById("fBaseUrl").value.trim();addView(2)}
+function parseLines(txt,mode){return txt.split(/\n+/).map(function(x){var p=x.split("|");if(p.length<2)return null;return mode==="u"?{v:p[0].trim(),url:p.slice(1).join("|").trim()}:{n:p[0].trim(),url:p.slice(1).join("|").trim()}}).filter(Boolean)}
+function draftUpdates(){draft.updates=parseLines(document.getElementById("fUpdates").value,"u");addView(3)}
+function saveDraft(){draft.dlcs=parseLines(document.getElementById("fDlcs").value,"d");if(!draft.name){toast("Volte e informe os dados do jogo.");return}var arr=getGames();draft.id=Date.now();arr.push(JSON.parse(JSON.stringify(draft)));saveGames(arr);draft={};toast("Jogo salvo no catálogo local.");setTimeout(function(){go("games",document.querySelector("[data-view=games]"))},500)}
+function restoreDraft(tab){setTimeout(function(){if(tab===0){if(draft.name)document.getElementById("fName").value=draft.name;if(draft.titleId)document.getElementById("fId").value=draft.titleId}if(tab===1){if(draft.base)document.getElementById("fBase").value=draft.base;if(draft.baseUrl)document.getElementById("fBaseUrl").value=draft.baseUrl}},10)}
+function details(id){var g=getGames().find(function(x){return x.id===id});if(!g)return;var u=(g.updates||[]).map(function(x){return '<div class="package"><div>🔄</div><div class="meta"><b>Update '+esc(x.v)+'</b><small>'+esc(x.url||"Sem link")+'</small></div></div>'}).join('')||'<div class="note">Nenhum update cadastrado.</div>';var d=(g.dlcs||[]).map(function(x){return '<div class="package"><div>🧩</div><div class="meta"><b>'+esc(x.n)+'</b><small>'+esc(x.url||"Sem link")+'</small></div></div>'}).join('')||'<div class="note">Nenhum DLC cadastrado.</div>';document.getElementById("sheet").innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">'+esc(g.name)+'</h2><button class="danger" onclick="closeModal()">✕</button></div><p class="sub">'+esc(g.titleId)+' • '+esc(g.category)+'</p><div class="card"><div class="kv"><span>Versão Base</span><b class="green">v'+esc(g.base)+'</b></div><div class="kv"><span>Link Base</span><span class="muted">'+esc(g.baseUrl||"Não informado")+'</span></div></div><div class="section-title"><b>Updates</b><span>'+((g.updates||[]).length)+'</span></div>'+u+'<div class="section-title"><b>DLCs</b><span>'+((g.dlcs||[]).length)+'</span></div>'+d+'<button class="secondary" onclick="removeGame('+g.id+')">Excluir do catálogo local</button>';document.getElementById("modal").classList.remove("hidden")}
+function closeModal(){document.getElementById("modal").classList.add("hidden")}
+function removeGame(id){var arr=getGames().filter(function(x){return x.id!==id});saveGames(arr);closeModal();toast("Item removido.");render("games")}
+function simulateSync(){toast("Catálogo preparado. A publicação Cloudflare entra na próxima etapa.")}
+if(sessionStorage.getItem("ov_login")==="1"){setTimeout(function(){document.getElementById("splash").classList.add("hidden");document.getElementById("login").classList.add("hidden");document.getElementById("app").classList.remove("hidden");render("home")},50)}
+</script>
+</body>
+</html>
