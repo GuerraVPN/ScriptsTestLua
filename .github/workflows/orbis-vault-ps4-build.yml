@@ -1,5 +1,9 @@
 name: Orbis Vault PS4 Build
 
+concurrency:
+  group: orbis-vault-ps4-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
