@@ -1,6 +1,6 @@
 #include "native_http.hpp"
 
-#include <orbis/Http.h>
+#include "ps4_http_api.hpp"
 #include <orbis/Net.h>
 #include <orbis/Ssl.h>
 #include <orbis/Sysmodule.h>
@@ -33,7 +33,7 @@ bool ensureNativeHttp() {
         return false;
     }
 
-    g_sslContext = sceSslInit(SSL_POOLSIZE);
+    g_sslContext = sceSslInit(128 * 1024U);
     if (g_sslContext < 0) {
         sceNetPoolDestroy(g_netPool);
         g_netPool = 0;
@@ -41,7 +41,7 @@ bool ensureNativeHttp() {
         return false;
     }
 
-    g_httpContext = sceHttpInit(g_netPool, g_sslContext, LIBHTTP_POOLSIZE);
+    g_httpContext = sceHttpInit(g_netPool, g_sslContext, 128 * 1024U);
     if (g_httpContext < 0) {
         sceSslTerm(g_sslContext);
         sceNetPoolDestroy(g_netPool);
