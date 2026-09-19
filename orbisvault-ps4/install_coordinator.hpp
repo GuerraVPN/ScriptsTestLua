@@ -16,6 +16,7 @@ struct InstallSnapshot {
     bool failed = false;
     int progress = 0;
     std::string title;
+    std::string titleId;
     std::string stage;
     std::string error;
 };
