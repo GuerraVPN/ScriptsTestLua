@@ -162,9 +162,8 @@ void InstallCoordinator::run(TitleItem title) {
             return;
         }
 
-        // Once the system accepted installation, remove the downloaded
-        // package to avoid filling /data.
-        unlink(path.c_str());
+        // Keep the PKG until a later cleanup pass. AppInstUtil may continue
+        // reading it after this call returns on some environments.
         setState(label + " OK", (index + 1) * 100 / totalPackages);
     }
 
