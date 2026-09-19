@@ -1,10 +1,9 @@
 #include "installer.hpp"
 
 #ifdef ORBIS_VAULT_NATIVE_INSTALL
-extern "C" {
-int sceAppInstUtilInitialize(void);
-int sceAppInstUtilAppInstallPkg(const char* file_path, void* reserved);
-}
+#include <orbis/AppInstUtil.h>
+#include <orbis/SystemService.h>
+#include <orbis/UserService.h>
 #endif
 
 namespace ov {
@@ -12,6 +11,8 @@ namespace ov {
 bool Installer::initialize() {
 #ifdef ORBIS_VAULT_NATIVE_INSTALL
     const int rc = sceAppInstUtilInitialize();
+    // User service can already be initialized by the shell/runtime.
+    sceUserServiceInitialize(nullptr);
     return rc == 0;
 #else
     return true;
@@ -25,8 +26,8 @@ InstallResult Installer::installLocalPackage(const std::string& pkgPath,
     const int rc = sceAppInstUtilAppInstallPkg(pkgPath.c_str(), nullptr);
     out.code = rc;
     out.ok = (rc == 0);
-    out.message = out.ok ? ("Instalação iniciada: " + displayName)
-                         : ("Falha ao iniciar instalação: " + std::to_string(rc));
+    out.message = out.ok ? ("Instalacao iniciada: " + displayName)
+                         : ("Falha ao iniciar instalacao: " + std::to_string(rc));
 #else
     out.ok = false;
     out.code = -1;
@@ -35,9 +36,62 @@ InstallResult Installer::installLocalPackage(const std::string& pkgPath,
     return out;
 }
 
+bool Installer::isInstalled(const std::string& titleId) const {
+#ifdef ORBIS_VAULT_NATIVE_INSTALL
+    if (titleId.empty()) return false;
+    int32_t exists = 0;
+    const int rc = sceAppInstUtilAppExists(titleId.c_str(), &exists);
+    return rc == 0 && exists != 0;
+#else
+    (void)titleId;
+    return false;
+#endif
+}
+
+InstallResult Installer::launchTitle(const std::string& titleId) {
+    InstallResult out;
+#ifdef ORBIS_VAULT_NATIVE_INSTALL
+    if (titleId.empty()) {
+        out.code = -1;
+        out.message = "Title ID vazio";
+        return out;
+    }
+
+    int32_t userId = -1;
+    int rc = sceUserServiceGetForegroundUser(&userId);
+    if (rc != 0 || userId < 0) {
+        out.code = rc;
+        out.message = "Nao foi possivel obter o usuario ativo";
+        return out;
+    }
+
+    LncAppParam param{};
+    param.size = sizeof(LncAppParam);
+    param.user_id = static_cast<uint32_t>(userId);
+    param.app_opt = 0;
+    param.crash_report = 0;
+    param.LaunchAppCheck_flag = LaunchApp_SkipSystemUpdate;
+
+    const char* argv[] = { nullptr };
+    rc = sceSystemServiceLaunchApp(titleId.c_str(), argv, &param);
+
+    out.code = rc;
+    out.ok = (rc >= 0);
+    out.message = out.ok
+        ? ("Abrindo " + titleId)
+        : ("Falha ao abrir " + titleId + ": " + std::to_string(rc));
+#else
+    out.code = -1;
+    out.ok = false;
+    out.message = "Native launcher adapter not enabled in this build";
+#endif
+    return out;
+}
+
 void Installer::shutdown() {
-    // Finalization will be wired after hardware validation of the chosen
-    // OpenOrbis/AppInstUtil path.
+#ifdef ORBIS_VAULT_NATIVE_INSTALL
+    sceAppInstUtilTerminate();
+#endif
 }
 
 } // namespace ov
