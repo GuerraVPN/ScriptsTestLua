@@ -240,7 +240,13 @@ void AppUi::renderCatalog() {
         }
 
         drawText(x+18,y+282,title.name,2,244,248,255,20);
-        drawText(x+18,y+322,title.titleId,2,159,181,205,18);
+        drawText(x+18,y+322,
+                 title.titleId + (title.installed ? " INSTALADO" : ""),
+                 2,
+                 title.installed ? 31 : 159,
+                 title.installed ? 211 : 181,
+                 title.installed ? 138 : 205,
+                 24);
     }
 }
 
@@ -266,8 +272,15 @@ void AppUi::renderDetails() {
     drawText(525,230,t.name,4,244,248,255,27);
     drawText(525,288,t.titleId+"  "+t.region,2,53,200,255,38);
     drawText(525,340,t.category.empty()?"PS4":t.category,2,159,181,205,42);
+    drawText(525,382,
+             t.installed ? "INSTALADO NO PS4" : "NAO INSTALADO",
+             2,
+             t.installed ? 31 : 255,
+             t.installed ? 211 : 189,
+             t.installed ? 138 : 74,
+             42);
 
-    int py=425;
+    int py=435;
     if(t.hasBase){
         drawText(525,py,"BASE  V"+t.base.version,3,31,211,138,46);
         py+=52;
@@ -278,12 +291,26 @@ void AppUi::renderDetails() {
     drawText(525,py,"UPDATES  "+std::to_string(t.updates.size()),3,159,181,205); py+=52;
     drawText(525,py,"DLCS     "+std::to_string(t.dlcs.size()),3,159,181,205); py+=78;
 
-    const bool buttonSel=selectedDetailAction_==0;
-    fillRect(525,py,600,76,buttonSel?13:8,buttonSel?99:30,buttonSel?185:52);
-    outlineRect(525,py,600,76,22,140,255);
-    drawText(570,py+25,"BAIXAR E INSTALAR",3,244,248,255);
+    if(t.installed){
+        const bool openSel=selectedDetailAction_==0;
+        fillRect(525,py,600,76,openSel?13:8,openSel?99:30,openSel?185:52);
+        outlineRect(525,py,600,76,22,140,255);
+        drawText(570,py+25,"ABRIR JOGO",3,244,248,255);
 
-    drawText(525,py+118,"BASE -> UPDATE -> DLCS",2,159,181,205);
+        const int installY=py+94;
+        const bool installSel=selectedDetailAction_==1;
+        fillRect(525,installY,600,76,installSel?13:8,installSel?99:30,installSel?185:52);
+        outlineRect(525,installY,600,76,22,140,255);
+        drawText(570,installY+25,"BAIXAR / ATUALIZAR",3,244,248,255);
+
+        drawText(525,installY+118,"BASE -> UPDATE -> DLCS",2,159,181,205);
+    }else{
+        const bool buttonSel=selectedDetailAction_==0;
+        fillRect(525,py,600,76,buttonSel?13:8,buttonSel?99:30,buttonSel?185:52);
+        outlineRect(525,py,600,76,22,140,255);
+        drawText(570,py+25,"BAIXAR E INSTALAR",3,244,248,255);
+        drawText(525,py+118,"BASE -> UPDATE -> DLCS",2,159,181,205);
+    }
 }
 
 void AppUi::renderDownloads() {
@@ -336,7 +363,7 @@ void AppUi::renderFooter() {
     if(screen_==UiScreen::Catalog)
         drawText(70,1035,"X ABRIR   TRIANGULO DOWNLOADS   QUADRADO CONFIG   OPTIONS SINCRONIZAR",2,159,181,205,84);
     else if(screen_==UiScreen::Details)
-        drawText(70,1035,"X INSTALAR   O VOLTAR   TRIANGULO DOWNLOADS",2,159,181,205,70);
+        drawText(70,1035,"X SELECIONAR   CIMA/BAIXO ACAO   O VOLTAR   TRIANGULO DOWNLOADS",2,159,181,205,82);
     else if(screen_==UiScreen::Settings)
         drawText(70,1035,"X PAREAR PS4   O VOLTAR",2,159,181,205,58);
     else
@@ -375,10 +402,24 @@ UiAction AppUi::handleButton(uint8_t button) {
         else if(button==PAD_RIGHT) moveSelection(1,0);
         else if(button==PAD_UP) moveSelection(0,-1);
         else if(button==PAD_DOWN) moveSelection(0,1);
-        else if(button==PAD_CROSS) screen_=UiScreen::Details;
+        else if(button==PAD_CROSS) {
+            selectedDetailAction_=0;
+            screen_=UiScreen::Details;
+        }
     }else if(screen_==UiScreen::Details){
-        if(button==PAD_CROSS){
-            a.type=UiActionType::InstallSelected;
+        const bool installed =
+            catalog_ && selected_ >= 0 &&
+            selected_ < static_cast<int>(catalog_->titles.size()) &&
+            catalog_->titles[selected_].installed;
+
+        if(button==PAD_UP || button==PAD_DOWN){
+            if(installed) selectedDetailAction_=selectedDetailAction_==0?1:0;
+            else selectedDetailAction_=0;
+        }else if(button==PAD_CROSS){
+            if(installed && selectedDetailAction_==0)
+                a.type=UiActionType::OpenSelected;
+            else
+                a.type=UiActionType::InstallSelected;
             a.titleIndex=selected_;
         }
     }else if(screen_==UiScreen::Settings){
