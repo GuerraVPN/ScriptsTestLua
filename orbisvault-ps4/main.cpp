@@ -172,49 +172,86 @@ int main() {
             lastPairCheck = now;
         }
 
-        // Poll remote install queue only when no local/remote job is running.
+        // Poll every 3 seconds during a remote job so cancellation from the
+        // Android app is noticed quickly; otherwise use the normal interval.
         InstallSnapshot beforeRemote = coordinator.snapshot();
-        if (device.paired &&
-            !beforeRemote.active &&
-            activeRemoteCommand == 0 &&
-            now - lastRemotePoll >= static_cast<uint32_t>(REMOTE_POLL_SECONDS * 1000)) {
+        const uint32_t remoteInterval =
+            activeRemoteCommand != 0
+                ? 3000U
+                : static_cast<uint32_t>(REMOTE_POLL_SECONDS * 1000);
+
+        if (device.paired && now - lastRemotePoll >= remoteInterval) {
             std::vector<RemoteCommand> commands;
             std::string remoteError;
 
             if (remote.poll(device, commands, remoteError)) {
-                if (!commands.empty()) {
-                    const RemoteCommand& cmd = commands.front();
+                bool handled = false;
 
-                    const TitleItem* selected = nullptr;
-                    for (const auto& t : catalog.titles) {
-                        if ((cmd.titleDbId > 0 && t.id == cmd.titleDbId) ||
-                            (!cmd.titleId.empty() && t.titleId == cmd.titleId)) {
-                            selected = &t;
+                if (activeRemoteCommand != 0) {
+                    for (const auto& cmd : commands) {
+                        if (cmd.id == activeRemoteCommand &&
+                            cmd.status == "CANCEL_REQUESTED") {
+                            coordinator.cancel();
+                            uiStatus.message = "CANCELANDO INSTALACAO REMOTA";
+                            handled = true;
                             break;
                         }
                     }
+                }
 
-                    if (cmd.action == "SYNC_CATALOG") {
-                        syncCatalog(catalogClient, coverCache, catalog, uiStatus);
-                        ui.setCatalog(&catalog);
-                        remote.updateStatus(device, cmd.id, "COMPLETED", 100,
-                                            "Catalogo sincronizado", remoteError);
-                    } else if ((cmd.action == "INSTALL_ALL" ||
-                                cmd.action == "INSTALL_SELECTED") &&
-                               selected) {
-                        if (coordinator.start(*selected)) {
-                            activeRemoteCommand = cmd.id;
-                            lastReportedProgress = -1;
-                            lastReportedStage.clear();
-                            remote.updateStatus(device, cmd.id, "ACCEPTED", 0,
-                                                "Comando aceito pelo PS4", remoteError);
-                            uiStatus.message = "INSTALACAO REMOTA RECEBIDA";
+                if (!beforeRemote.active && activeRemoteCommand == 0) {
+                    for (const auto& cmd : commands) {
+                        if (cmd.status == "CANCEL_REQUESTED") {
+                            remote.updateStatus(device, cmd.id, "CANCELLED", 0,
+                                                "Nada em execucao para cancelar",
+                                                remoteError);
+                            handled = true;
+                            continue;
                         }
-                    } else {
-                        remote.updateStatus(device, cmd.id, "ERROR", 0,
-                                            "Comando ou titulo invalido", remoteError);
+
+                        const TitleItem* selected = nullptr;
+                        for (const auto& t : catalog.titles) {
+                            if ((cmd.titleDbId > 0 && t.id == cmd.titleDbId) ||
+                                (!cmd.titleId.empty() && t.titleId == cmd.titleId)) {
+                                selected = &t;
+                                break;
+                            }
+                        }
+
+                        if (cmd.action == "SYNC_CATALOG") {
+                            syncCatalog(catalogClient, coverCache, catalog, uiStatus);
+                            ui.setCatalog(&catalog);
+                            remote.updateStatus(device, cmd.id, "COMPLETED", 100,
+                                                "Catalogo sincronizado", remoteError);
+                            handled = true;
+                            break;
+                        }
+
+                        if ((cmd.action == "INSTALL_ALL" ||
+                             cmd.action == "INSTALL_SELECTED") &&
+                            selected) {
+                            if (coordinator.start(*selected)) {
+                                activeRemoteCommand = cmd.id;
+                                lastReportedProgress = -1;
+                                lastReportedStage.clear();
+                                remote.updateStatus(device, cmd.id, "ACCEPTED", 0,
+                                                    "Comando aceito pelo PS4",
+                                                    remoteError);
+                                uiStatus.message = "INSTALACAO REMOTA RECEBIDA";
+                                handled = true;
+                                break;
+                            }
+                        } else if (cmd.status == "QUEUED") {
+                            remote.updateStatus(device, cmd.id, "ERROR", 0,
+                                                "Comando ou titulo invalido",
+                                                remoteError);
+                            handled = true;
+                            break;
+                        }
                     }
-                } else {
+                }
+
+                if (!handled && commands.empty()) {
                     remote.heartbeat(device, remoteError);
                 }
             }
@@ -239,6 +276,7 @@ int main() {
             if (job.stage.find("VERIFICANDO") == 0) remoteState = "VERIFYING";
             else if (job.stage.find("INSTALANDO") == 0) remoteState = "INSTALLING";
             else if (job.completed) remoteState = "COMPLETED";
+            else if (job.stage == "CANCELADO") remoteState = "CANCELLED";
             else if (job.failed) remoteState = "ERROR";
 
             std::string reportError;
