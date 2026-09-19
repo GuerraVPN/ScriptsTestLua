@@ -14,7 +14,20 @@ enum {
     OV_HTTP_CONTENTLEN_EXIST = 0
 };
 
+static constexpr uint32_t OV_SYSMODULE_INTERNAL_HTTP = 0x8000000A;
+static constexpr uint32_t OV_SYSMODULE_INTERNAL_SSL  = 0x8000000B;
+static constexpr uint32_t OV_SYSMODULE_INTERNAL_NET  = 0x8000001C;
+
 extern "C" {
+
+uint32_t sceSysmoduleLoadModuleInternal(uint32_t moduleId);
+
+int32_t sceNetInit(void);
+int32_t sceNetPoolCreate(const char* name, int32_t size, int32_t flags);
+void sceNetPoolDestroy(int32_t poolId);
+
+int32_t sceSslInit(size_t poolSize);
+void sceSslTerm(int32_t sslId);
 
 int32_t sceHttpInit(int32_t memId, int32_t sslId, size_t poolSize);
 int32_t sceHttpTerm(int32_t httpCtxId);
