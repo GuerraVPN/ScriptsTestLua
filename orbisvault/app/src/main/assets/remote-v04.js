@@ -161,6 +161,9 @@ async function refreshRemoteJobs(deviceId=""){
           '<div class="kv"><span>'+esc(title)+'</span><b>'+p+'%</b></div>'+
           '<div style="height:8px;background:#08182b;border-radius:999px;overflow:hidden;margin-top:10px"><div style="height:100%;width:'+p+'%;background:#168cff"></div></div>'+
           (c.message?'<small class="muted" style="display:block;margin-top:9px">'+esc(c.message)+'</small>':'')+
+          (["QUEUED","ACCEPTED","DOWNLOADING","VERIFYING","INSTALLING"].includes(c.status)
+            ?'<button class="dangerBtn" style="margin-top:10px" onclick="cancelRemoteCommand('+Number(c.id)+',\''+esc(c.device_id||deviceId)+'\')">Cancelar</button>'
+            :'')+
           '</div>';
       }).join('');
     }
@@ -169,5 +172,19 @@ async function refreshRemoteJobs(deviceId=""){
     document.getElementById("sheet").innerHTML=
       '<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Instalações remotas</h2><button class="iconbtn" onclick="closeModal()">✕</button></div>'+
       '<div class="note error">'+esc(e.message)+'</div>';
+  }
+}
+
+
+async function cancelRemoteCommand(commandId,deviceId=""){
+  try{
+    const d=await api("/api/admin/device/commands/"+Number(commandId)+"/cancel",{
+      method:"POST",
+      body:JSON.stringify({})
+    },true);
+    toast(d.message||"Cancelamento solicitado.");
+    await refreshRemoteJobs(deviceId);
+  }catch(e){
+    toast(e.message);
   }
 }
