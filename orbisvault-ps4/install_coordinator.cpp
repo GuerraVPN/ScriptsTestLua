@@ -78,7 +78,10 @@ InstallSnapshot InstallCoordinator::snapshot() const {
 void InstallCoordinator::run(TitleItem title) {
     std::vector<PackageItem> packages;
 
-    if (title.hasBase && !title.base.sourceUrl.empty())
+    // Reinstalling a base that is already present is unnecessary for the
+    // default update flow. Explicit remote package selection sets hasBase
+    // only when Base was actually selected.
+    if (title.hasBase && !title.base.sourceUrl.empty() && !title.installed)
         packages.push_back(title.base);
 
     // API keeps updates in insertion order. INSTALL_ALL applies the latest
