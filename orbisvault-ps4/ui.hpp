@@ -34,6 +34,10 @@ struct UiRuntimeStatus {
     std::string jobTitle;
     std::string jobStage;
     int jobProgress = 0;
+
+    bool remotePaired = false;
+    std::string remoteDeviceName;
+    std::string pairingCode;
 };
 
 class AppUi {
