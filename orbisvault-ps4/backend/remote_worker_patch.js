@@ -25,6 +25,58 @@ const DEVICE_STATES = new Set([
   "CANCELLED"
 ]);
 
+async function ensureRemoteSchema(env) {
+  await env.DB.batch([
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS devices (
+        device_id TEXT PRIMARY KEY,
+        device_name TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        paired INTEGER NOT NULL DEFAULT 0,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        last_seen TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        paired_at TEXT
+      )`
+    ),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS device_pairings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        consumed INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(device_id) REFERENCES devices(device_id) ON DELETE CASCADE
+      )`
+    ),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS device_commands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        device_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        title_db_id INTEGER,
+        title_id TEXT,
+        package_ids_json TEXT NOT NULL DEFAULT '[]',
+        status TEXT NOT NULL DEFAULT 'QUEUED',
+        progress INTEGER NOT NULL DEFAULT 0,
+        message TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        started_at TEXT,
+        completed_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(device_id) REFERENCES devices(device_id) ON DELETE CASCADE
+      )`
+    ),
+    env.DB.prepare(
+      "CREATE INDEX IF NOT EXISTS idx_pairings_code ON device_pairings(code_hash, consumed)"
+    ),
+    env.DB.prepare(
+      "CREATE INDEX IF NOT EXISTS idx_device_commands_poll ON device_commands(device_id, status, id)"
+    )
+  ]);
+}
+
 async function sha256Hex(value) {
   const data = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -42,6 +94,7 @@ function validDeviceId(v) {
 }
 
 async function requireDevice(request, env, expectedDeviceId = null) {
+  await ensureRemoteSchema(env);
   const auth = request.headers.get("Authorization") || "";
   if (!auth.startsWith("Bearer ")) {
     return {
@@ -95,6 +148,7 @@ function randomPairCode() {
 // Plain token/code are returned only once over HTTPS to the PS4.
 // D1 stores only SHA-256(token) and SHA-256(code).
 async function handleDevicePairStart(request, env) {
+  await ensureRemoteSchema(env);
   const body = await request.json();
   const deviceId = String(body.device_id || "");
   const deviceName = String(body.device_name || "PS4").slice(0, 80);
@@ -140,6 +194,7 @@ async function handleDevicePairStart(request, env) {
 // PUBLIC: PS4 checks whether the code was confirmed.
 // No token is returned because the console already owns its device_token.
 async function handleDevicePairStatus(env, deviceId) {
+  await ensureRemoteSchema(env);
   if (!validDeviceId(deviceId)) {
     return json({ error: "Invalid device_id" }, 400);
   }
@@ -160,6 +215,7 @@ async function handleDevicePairStatus(env, deviceId) {
 
 // ADMIN: confirms the 6-digit code typed in Android.
 async function handleAdminPairConfirm(request, env) {
+  await ensureRemoteSchema(env);
   const body = await request.json();
   const code = String(body.code || "").trim();
 
@@ -199,6 +255,7 @@ async function handleAdminPairConfirm(request, env) {
 }
 
 async function handleAdminListDevices(env) {
+  await ensureRemoteSchema(env);
   const result = await env.DB.prepare(
     `SELECT device_id, device_name, paired, enabled, last_seen, created_at, paired_at
      FROM devices
@@ -210,6 +267,7 @@ async function handleAdminListDevices(env) {
 
 // ADMIN: sends one command to a paired PS4.
 async function handleAdminCreateDeviceCommand(request, env) {
+  await ensureRemoteSchema(env);
   const body = await request.json();
   const deviceId = String(body.device_id || "");
   const action = String(body.action || "");
@@ -253,8 +311,45 @@ async function handleAdminCreateDeviceCommand(request, env) {
   }, 201);
 }
 
+// ADMIN: reads recent command history/progress for one or all consoles.
+async function handleAdminListDeviceCommands(env, url) {
+  await ensureRemoteSchema(env);
+
+  const deviceId = url.searchParams.get("device_id");
+  const limitRaw = Number(url.searchParams.get("limit") || 20);
+  const limit = Math.max(1, Math.min(100, Number.isFinite(limitRaw) ? Math.floor(limitRaw) : 20));
+
+  const result = deviceId
+    ? await env.DB.prepare(
+        `SELECT id, device_id, action, title_db_id, title_id, package_ids_json,
+                status, progress, message, created_at, started_at, completed_at, updated_at
+           FROM device_commands
+           WHERE device_id = ?
+           ORDER BY id DESC
+           LIMIT ?`
+      ).bind(deviceId, limit).all()
+    : await env.DB.prepare(
+        `SELECT id, device_id, action, title_db_id, title_id, package_ids_json,
+                status, progress, message, created_at, started_at, completed_at, updated_at
+           FROM device_commands
+           ORDER BY id DESC
+           LIMIT ?`
+      ).bind(limit).all();
+
+  const commands = (result.results || []).map(row => ({
+    ...row,
+    package_ids: (() => {
+      try { return JSON.parse(row.package_ids_json || "[]"); }
+      catch { return []; }
+    })()
+  }));
+
+  return json({ commands });
+}
+
 // DEVICE: fetches pending/current commands.
 async function handleDeviceCommands(request, env, url) {
+  await ensureRemoteSchema(env);
   const deviceId = url.searchParams.get("device_id") || "";
   const auth = await requireDevice(request, env, deviceId);
   if (!auth.authorized) return auth.response;
@@ -286,6 +381,7 @@ async function handleDeviceCommands(request, env, url) {
 
 // DEVICE: reports progress/state.
 async function handleDeviceCommandStatus(request, env, commandIdStr) {
+  await ensureRemoteSchema(env);
   const id = Number(commandIdStr);
   if (!Number.isInteger(id) || id <= 0) {
     return json({ error: "Invalid command id" }, 400);
@@ -341,6 +437,7 @@ async function handleDeviceCommandStatus(request, env, commandIdStr) {
 }
 
 async function handleDeviceHeartbeat(request, env) {
+  await ensureRemoteSchema(env);
   const body = await request.json();
   const deviceId = String(body.device_id || "");
   const auth = await requireDevice(request, env, deviceId);
