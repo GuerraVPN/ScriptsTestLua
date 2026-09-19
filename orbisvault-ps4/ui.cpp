@@ -367,7 +367,7 @@ void AppUi::renderFooter() {
     else if(screen_==UiScreen::Settings)
         drawText(70,1035,"X PAREAR PS4   O VOLTAR",2,159,181,205,58);
     else
-        drawText(70,1035,"O VOLTAR   OPTIONS SINCRONIZAR",2,159,181,205,58);
+        drawText(70,1035,"QUADRADO CANCELAR   O VOLTAR   OPTIONS SINCRONIZAR",2,159,181,205,70);
 }
 
 void AppUi::moveSelection(int dx,int dy) {
@@ -422,6 +422,8 @@ UiAction AppUi::handleButton(uint8_t button) {
                 a.type=UiActionType::InstallSelected;
             a.titleIndex=selected_;
         }
+    }else if(screen_==UiScreen::Downloads){
+        if(button==PAD_SQUARE) a.type=UiActionType::CancelInstall;
     }else if(screen_==UiScreen::Settings){
         if(button==PAD_CROSS) a.type=UiActionType::StartPairing;
     }
