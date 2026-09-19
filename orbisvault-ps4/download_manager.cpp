@@ -1,39 +1,18 @@
 #include "download_manager.hpp"
-#include "config.hpp"
-#include <curl/curl.h>
+#include "native_http.hpp"
+
+#include <orbis/Http.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
 namespace ov {
 
-struct DownloadContext {
-    FILE* file = nullptr;
-    ProgressCallback progress;
-};
+static constexpr const char* USER_AGENT = "OrbisVault/0.1 (PlayStation 4)";
 
-static size_t file_write_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
-    auto* ctx = static_cast<DownloadContext*>(userdata);
-    return fwrite(ptr, size, nmemb, ctx->file);
-}
-
-static int progress_cb(void* clientp,
-                       curl_off_t dltotal,
-                       curl_off_t dlnow,
-                       curl_off_t,
-                       curl_off_t) {
-    auto* ctx = static_cast<DownloadContext*>(clientp);
-    if (ctx->progress) {
-        ctx->progress(static_cast<uint64_t>(dlnow),
-                      static_cast<uint64_t>(dltotal),
-                      0.0);
-    }
-    return 0;
-}
-
-static curl_off_t file_size(const std::string& path) {
+static uint64_t localFileSize(const std::string& path) {
     struct stat st {};
     if (stat(path.c_str(), &st) != 0) return 0;
-    return static_cast<curl_off_t>(st.st_size);
+    return static_cast<uint64_t>(st.st_size);
 }
 
 DownloadResult DownloadManager::download(const PackageItem& pkg,
@@ -47,51 +26,115 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
         out.error = "package URL is empty";
         return out;
     }
-
-    curl_off_t existing = resume ? file_size(destination) : 0;
-    FILE* file = fopen(destination.c_str(), existing > 0 ? "ab" : "wb");
-    if (!file) {
-        out.error = "cannot open destination";
+    if (!ensureNativeHttp()) {
+        out.error = "native HTTP initialization failed";
         return out;
     }
 
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        fclose(file);
-        out.error = "curl_easy_init failed";
+    uint64_t existing = resume ? localFileSize(destination) : 0;
+
+    int tpl = sceHttpCreateTemplate(
+        nativeHttpContext(), USER_AGENT, ORBIS_HTTP_VERSION_1_1, 1);
+    if (tpl < 0) {
+        out.error = "sceHttpCreateTemplate failed";
         return out;
     }
 
-    DownloadContext ctx;
-    ctx.file = file;
-    ctx.progress = progress;
+    int conn = sceHttpCreateConnectionWithURL(tpl, pkg.sourceUrl.c_str(), true);
+    if (conn < 0) {
+        sceHttpDeleteTemplate(tpl);
+        out.error = "sceHttpCreateConnectionWithURL failed";
+        return out;
+    }
 
-    curl_easy_setopt(curl, CURLOPT_URL, pkg.sourceUrl.c_str());
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, file_write_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ctx);
-    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_cb);
-    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ctx);
-    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, HTTP_TIMEOUT_SECONDS);
-    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1024L);
-    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 30L);
+    int req = sceHttpCreateRequestWithURL(
+        conn, ORBIS_METHOD_GET, pkg.sourceUrl.c_str(), 0);
+    if (req < 0) {
+        sceHttpDeleteConnection(conn);
+        sceHttpDeleteTemplate(tpl);
+        out.error = "sceHttpCreateRequestWithURL failed";
+        return out;
+    }
 
     if (existing > 0) {
-        curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, existing);
+        const std::string range = "bytes=" + std::to_string(existing) + "-";
+        sceHttpAddRequestHeader(req, "Range", range.c_str(), 0);
     }
 
-    CURLcode rc = curl_easy_perform(curl);
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &out.httpStatus);
-
-    if (rc == CURLE_OK && out.httpStatus >= 200 && out.httpStatus < 400) {
-        out.ok = true;
-    } else {
-        out.error = curl_easy_strerror(rc);
+    int rc = sceHttpSendRequest(req, nullptr, 0);
+    if (rc < 0) {
+        out.error = "sceHttpSendRequest failed";
+        sceHttpDeleteRequest(req);
+        sceHttpDeleteConnection(conn);
+        sceHttpDeleteTemplate(tpl);
+        return out;
     }
 
-    curl_easy_cleanup(curl);
+    int32_t status = 0;
+    sceHttpGetStatusCode(req, &status);
+    out.httpStatus = status;
+
+    if (status != 200 && status != 206) {
+        out.error = "HTTP " + std::to_string(status);
+        sceHttpDeleteRequest(req);
+        sceHttpDeleteConnection(conn);
+        sceHttpDeleteTemplate(tpl);
+        return out;
+    }
+
+    // A server that ignored Range returns 200. Restart instead of appending
+    // duplicate bytes.
+    const bool continued = (existing > 0 && status == 206);
+    if (!continued) existing = 0;
+
+    FILE* file = fopen(destination.c_str(), continued ? "ab" : "wb");
+    if (!file) {
+        out.error = "cannot open destination";
+        sceHttpDeleteRequest(req);
+        sceHttpDeleteConnection(conn);
+        sceHttpDeleteTemplate(tpl);
+        return out;
+    }
+
+    int contentLengthType = 0;
+    size_t responseLength = 0;
+    sceHttpGetResponseContentLength(
+        req, &contentLengthType, &responseLength);
+
+    const uint64_t total =
+        contentLengthType == ORBIS_HTTP_CONTENTLEN_EXIST
+            ? existing + static_cast<uint64_t>(responseLength)
+            : pkg.sizeBytes;
+
+    uint8_t buffer[64 * 1024];
+    uint64_t downloaded = existing;
+
+    for (;;) {
+        const int read = sceHttpReadData(req, buffer, sizeof(buffer));
+        if (read < 0) {
+            out.error = "sceHttpReadData failed";
+            break;
+        }
+        if (read == 0) {
+            out.ok = true;
+            break;
+        }
+
+        const size_t written =
+            fwrite(buffer, 1, static_cast<size_t>(read), file);
+        if (written != static_cast<size_t>(read)) {
+            out.error = "storage write failed";
+            break;
+        }
+
+        downloaded += static_cast<uint64_t>(read);
+        if (progress) progress(downloaded, total, 0.0);
+    }
+
     fclose(file);
+    sceHttpDeleteRequest(req);
+    sceHttpDeleteConnection(conn);
+    sceHttpDeleteTemplate(tpl);
     return out;
 }
 
