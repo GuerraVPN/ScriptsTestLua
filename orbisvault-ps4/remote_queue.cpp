@@ -113,6 +113,7 @@ bool RemoteQueueClient::poll(const DeviceIdentity& device,
 
             const int idIdx = valueFor(r.body, tokens, i, "id");
             const int actionIdx = valueFor(r.body, tokens, i, "action");
+            const int statusIdx = valueFor(r.body, tokens, i, "status");
             const int titleDbIdx = valueFor(r.body, tokens, i, "title_db_id");
             const int titleIdIdx = valueFor(r.body, tokens, i, "title_id");
             const int packageIdsIdx = valueFor(r.body, tokens, i, "package_ids");
@@ -121,6 +122,8 @@ bool RemoteQueueClient::poll(const DeviceIdentity& device,
                 cmd.id = strtol(tokText(r.body, tokens[idIdx]).c_str(), nullptr, 10);
             if (actionIdx >= 0)
                 cmd.action = tokText(r.body, tokens[actionIdx]);
+            if (statusIdx >= 0)
+                cmd.status = tokText(r.body, tokens[statusIdx]);
             if (titleDbIdx >= 0)
                 cmd.titleDbId = atoi(tokText(r.body, tokens[titleDbIdx]).c_str());
             if (titleIdIdx >= 0 && tokens[titleIdIdx].type == JSMN_STRING)
