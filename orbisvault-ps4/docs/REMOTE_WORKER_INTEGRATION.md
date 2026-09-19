@@ -66,6 +66,31 @@ if (segments.length === 4 &&
   return await handleAdminCreateDeviceCommand(request, env);
 }
 
+// ADMIN: list recent command progress
+if (segments.length === 4 &&
+    segments[0] === "api" &&
+    segments[1] === "admin" &&
+    segments[2] === "device" &&
+    segments[3] === "commands" &&
+    method === "GET") {
+  const auth = await requireAdmin(request, env);
+  if (!auth.authorized) return auth.response;
+  return await handleAdminListDeviceCommands(env, url);
+}
+
+// ADMIN: request cancellation
+if (segments.length === 6 &&
+    segments[0] === "api" &&
+    segments[1] === "admin" &&
+    segments[2] === "device" &&
+    segments[3] === "commands" &&
+    segments[5] === "cancel" &&
+    method === "POST") {
+  const auth = await requireAdmin(request, env);
+  if (!auth.authorized) return auth.response;
+  return await handleAdminCancelDeviceCommand(env, segments[4]);
+}
+
 // DEVICE: poll commands
 if (segments.length === 3 &&
     segments[0] === "api" &&
