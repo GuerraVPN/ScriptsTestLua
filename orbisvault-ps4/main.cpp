@@ -28,6 +28,38 @@ static void refreshInstalledState(Installer& installer, Catalog& catalog) {
     }
 }
 
+static TitleItem filterTitlePackages(const TitleItem& source,
+                                     const std::vector<int>& packageIds) {
+    if (packageIds.empty()) return source;
+
+    TitleItem out = source;
+    out.hasBase = false;
+    out.updates.clear();
+    out.dlcs.clear();
+
+    auto selected = [&packageIds](int id) {
+        for (int wanted : packageIds)
+            if (wanted == id) return true;
+        return false;
+    };
+
+    if (source.hasBase && selected(source.base.id)) {
+        out.base = source.base;
+        out.hasBase = true;
+        // Explicit Base selection means reinstall Base even when the title
+        // already exists on the console.
+        out.installed = false;
+    }
+
+    for (const auto& p : source.updates)
+        if (selected(p.id)) out.updates.push_back(p);
+
+    for (const auto& p : source.dlcs)
+        if (selected(p.id)) out.dlcs.push_back(p);
+
+    return out;
+}
+
 static bool syncCatalog(CatalogClient& client,
                         CoverCache& covers,
                         Catalog& catalog,
@@ -259,7 +291,25 @@ int main() {
                         if ((cmd.action == "INSTALL_ALL" ||
                              cmd.action == "INSTALL_SELECTED") &&
                             selected) {
-                            if (coordinator.start(*selected)) {
+                            TitleItem installTitle =
+                                cmd.action == "INSTALL_SELECTED"
+                                    ? filterTitlePackages(*selected, cmd.packageIds)
+                                    : *selected;
+
+                            const bool hasSelection =
+                                installTitle.hasBase ||
+                                !installTitle.updates.empty() ||
+                                !installTitle.dlcs.empty();
+
+                            if (!hasSelection && cmd.action == "INSTALL_SELECTED") {
+                                remote.updateStatus(device, cmd.id, "ERROR", 0,
+                                                    "Nenhum pacote valido selecionado",
+                                                    remoteError);
+                                handled = true;
+                                break;
+                            }
+
+                            if (coordinator.start(installTitle)) {
                                 installedRefreshFor.clear();
                                 activeRemoteCommand = cmd.id;
                                 lastReportedProgress = -1;
