@@ -54,6 +54,7 @@ bool InstallCoordinator::start(const TitleItem& title) {
         state_ = {};
         state_.active = true;
         state_.title = title.name;
+        state_.titleId = title.titleId;
         state_.stage = "PREPARANDO";
     }
 
