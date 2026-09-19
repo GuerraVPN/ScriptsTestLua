@@ -5,6 +5,8 @@
 #include "install_coordinator.hpp"
 #include "installer.hpp"
 #include "native_http.hpp"
+#include "pairing_client.hpp"
+#include "remote_queue.hpp"
 #include "ui.hpp"
 
 #include <stdio.h>
@@ -73,6 +75,11 @@ int main() {
     HttpClient http;
     CatalogClient catalogClient(http);
     CoverCache coverCache(http);
+    PairingClient pairing(http);
+    RemoteQueueClient remote(http);
+
+    DeviceIdentity device;
+    pairing.load(device);
 
     Catalog catalog;
     UiRuntimeStatus uiStatus;
@@ -90,9 +97,19 @@ int main() {
     }
 
     ui.setCatalog(&catalog);
+    uiStatus.remotePaired = device.paired;
+    uiStatus.remoteDeviceName = device.deviceName;
+
     if (!installerReady)
         uiStatus.message = "INSTALADOR NATIVO INDISPONIVEL NESTA BUILD";
     ui.setStatus(uiStatus);
+
+    uint32_t lastPairCheck = 0;
+    uint32_t lastRemotePoll = 0;
+    uint32_t lastRemoteReport = 0;
+    long activeRemoteCommand = 0;
+    int lastReportedProgress = -1;
+    std::string lastReportedStage;
 
     while (ui.running()) {
         const UiAction action = ui.update();
@@ -124,9 +141,84 @@ int main() {
         }
 
         if (action.type == UiActionType::StartPairing) {
-            // Pairing transport is the next runtime milestone. The Worker/D1
-            // protocol is already implemented in backend/remote_worker_patch.js.
-            uiStatus.message = "PAREAMENTO: PUBLIQUE A API REMOTA NO CLOUDFLARE";
+            if (device.paired) {
+                uiStatus.message = "ESTE PS4 JA ESTA PAREADO";
+            } else {
+                PairingResult result = pairing.start(device, "Orbis Vault PS4");
+                if (result.ok) {
+                    uiStatus.pairingCode = result.code;
+                    uiStatus.remoteDeviceName = device.deviceName;
+                    uiStatus.message = "DIGITE O CODIGO NO APP ANDROID";
+                    lastPairCheck = SDL_GetTicks();
+                } else {
+                    uiStatus.message = "FALHA NO PAREAMENTO: " + result.error;
+                }
+            }
+        }
+
+        const uint32_t now = SDL_GetTicks();
+
+        // While waiting for confirmation on Android, refresh pairing status.
+        if (!device.paired &&
+            !device.deviceId.empty() &&
+            !uiStatus.pairingCode.empty() &&
+            now - lastPairCheck >= 3000) {
+            std::string pairError;
+            if (pairing.refreshStatus(device, pairError) && device.paired) {
+                uiStatus.remotePaired = true;
+                uiStatus.pairingCode.clear();
+                uiStatus.message = "PS4 PAREADO COM SUCESSO";
+            }
+            lastPairCheck = now;
+        }
+
+        // Poll remote install queue only when no local/remote job is running.
+        InstallSnapshot beforeRemote = coordinator.snapshot();
+        if (device.paired &&
+            !beforeRemote.active &&
+            activeRemoteCommand == 0 &&
+            now - lastRemotePoll >= static_cast<uint32_t>(REMOTE_POLL_SECONDS * 1000)) {
+            std::vector<RemoteCommand> commands;
+            std::string remoteError;
+
+            if (remote.poll(device, commands, remoteError)) {
+                if (!commands.empty()) {
+                    const RemoteCommand& cmd = commands.front();
+
+                    const TitleItem* selected = nullptr;
+                    for (const auto& t : catalog.titles) {
+                        if ((cmd.titleDbId > 0 && t.id == cmd.titleDbId) ||
+                            (!cmd.titleId.empty() && t.titleId == cmd.titleId)) {
+                            selected = &t;
+                            break;
+                        }
+                    }
+
+                    if (cmd.action == "SYNC_CATALOG") {
+                        syncCatalog(catalogClient, coverCache, catalog, uiStatus);
+                        ui.setCatalog(&catalog);
+                        remote.updateStatus(device, cmd.id, "COMPLETED", 100,
+                                            "Catalogo sincronizado", remoteError);
+                    } else if ((cmd.action == "INSTALL_ALL" ||
+                                cmd.action == "INSTALL_SELECTED") &&
+                               selected) {
+                        if (coordinator.start(*selected)) {
+                            activeRemoteCommand = cmd.id;
+                            lastReportedProgress = -1;
+                            lastReportedStage.clear();
+                            remote.updateStatus(device, cmd.id, "ACCEPTED", 0,
+                                                "Comando aceito pelo PS4", remoteError);
+                            uiStatus.message = "INSTALACAO REMOTA RECEBIDA";
+                        }
+                    } else {
+                        remote.updateStatus(device, cmd.id, "ERROR", 0,
+                                            "Comando ou titulo invalido", remoteError);
+                    }
+                } else {
+                    remote.heartbeat(device, remoteError);
+                }
+            }
+            lastRemotePoll = now;
         }
 
         const InstallSnapshot job = coordinator.snapshot();
@@ -139,6 +231,35 @@ int main() {
         else if (job.completed)
             uiStatus.message = "INSTALACAO CONCLUIDA";
 
+        if (activeRemoteCommand != 0 &&
+            (job.progress != lastReportedProgress ||
+             job.stage != lastReportedStage ||
+             now - lastRemoteReport >= 5000)) {
+            std::string remoteState = "DOWNLOADING";
+            if (job.stage.find("VERIFICANDO") == 0) remoteState = "VERIFYING";
+            else if (job.stage.find("INSTALANDO") == 0) remoteState = "INSTALLING";
+            else if (job.completed) remoteState = "COMPLETED";
+            else if (job.failed) remoteState = "ERROR";
+
+            std::string reportError;
+            const std::string reportMessage =
+                job.failed && !job.error.empty() ? job.error : job.stage;
+
+            remote.updateStatus(device, activeRemoteCommand, remoteState,
+                                job.progress, reportMessage, reportError);
+
+            lastReportedProgress = job.progress;
+            lastReportedStage = job.stage;
+            lastRemoteReport = now;
+
+            if (job.completed || job.failed) {
+                activeRemoteCommand = 0;
+                lastRemotePoll = 0;
+            }
+        }
+
+        uiStatus.remotePaired = device.paired;
+        uiStatus.remoteDeviceName = device.deviceName;
         ui.setStatus(uiStatus);
         ui.render();
         SDL_Delay(16);
