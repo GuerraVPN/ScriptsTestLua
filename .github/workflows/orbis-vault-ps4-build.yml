@@ -49,13 +49,20 @@ jobs:
           echo "OpenOrbis root: $SDK_ROOT"
           ls -la "$SDK_ROOT/bin/linux" | head -80
 
-      - name: Build PKG
+      - name: Build eboot and GP4
         shell: bash
         run: |
           set -euo pipefail
           cd orbisvault-ps4
           make clean
-          make pkg
+          make pkg.gp4
+
+      - name: Build PKG with compatible PkgTool runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull openorbisofficial/toolchain:latest
+          docker run --rm --user 0             -w /workspace/orbisvault-ps4             -v "$GITHUB_WORKSPACE:/workspace"             openorbisofficial/toolchain:latest             bash -lc "/lib/OpenOrbisSDK/bin/linux/PkgTool.Core pkg_build pkg.gp4 ."
 
       - name: Collect artifact
         shell: bash
