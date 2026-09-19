@@ -1,9 +1,6 @@
 #include "native_http.hpp"
 
 #include "ps4_http_api.hpp"
-#include <orbis/Net.h>
-#include <orbis/Ssl.h>
-#include <orbis/Sysmodule.h>
 
 namespace ov {
 
@@ -17,11 +14,11 @@ static bool g_initialized = false;
 bool ensureNativeHttp() {
     if (g_initialized) return true;
 
-    if (sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_NET) < 0)
+    if (sceSysmoduleLoadModuleInternal(OV_SYSMODULE_INTERNAL_NET) < 0)
         return false;
-    if (sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_HTTP) < 0)
+    if (sceSysmoduleLoadModuleInternal(OV_SYSMODULE_INTERNAL_HTTP) < 0)
         return false;
-    if (sceSysmoduleLoadModuleInternal(ORBIS_SYSMODULE_INTERNAL_SSL) < 0)
+    if (sceSysmoduleLoadModuleInternal(OV_SYSMODULE_INTERNAL_SSL) < 0)
         return false;
 
     // sceNetInit may already have been called by the environment.
