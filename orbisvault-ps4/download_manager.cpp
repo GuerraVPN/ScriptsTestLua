@@ -1,7 +1,7 @@
 #include "download_manager.hpp"
 #include "native_http.hpp"
 
-#include <orbis/Http.h>
+#include "ps4_http_api.hpp"
 #include <stdio.h>
 #include <sys/stat.h>
 
@@ -34,7 +34,7 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
     uint64_t existing = resume ? localFileSize(destination) : 0;
 
     int tpl = sceHttpCreateTemplate(
-        nativeHttpContext(), USER_AGENT, ORBIS_HTTP_VERSION_1_1, 1);
+        nativeHttpContext(), USER_AGENT, OV_HTTP_VERSION_1_1, 1);
     if (tpl < 0) {
         out.error = "sceHttpCreateTemplate failed";
         return out;
@@ -48,7 +48,7 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
     }
 
     int req = sceHttpCreateRequestWithURL(
-        conn, ORBIS_METHOD_GET, pkg.sourceUrl.c_str(), 0);
+        conn, OV_HTTP_METHOD_GET, pkg.sourceUrl.c_str(), 0);
     if (req < 0) {
         sceHttpDeleteConnection(conn);
         sceHttpDeleteTemplate(tpl);
@@ -102,7 +102,7 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
         req, &contentLengthType, &responseLength);
 
     const uint64_t total =
-        contentLengthType == ORBIS_HTTP_CONTENTLEN_EXIST
+        contentLengthType == OV_HTTP_CONTENTLEN_EXIST
             ? existing + static_cast<uint64_t>(responseLength)
             : pkg.sizeBytes;
 
