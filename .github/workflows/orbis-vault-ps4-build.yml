@@ -22,26 +22,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Pull OpenOrbis toolchain
-        run: docker pull openorbisofficial/toolchain:latest
-
-      - name: Build with OpenOrbis Toolchain
+      - name: Install OpenOrbis v0.5.4
+        shell: bash
         run: |
-          docker run --rm --user 0 -w /workspace/orbisvault-ps4 -v "$GITHUB_WORKSPACE:/workspace" openorbisofficial/toolchain:latest bash -lc "echo TOOLCHAIN=\$OO_PS4_TOOLCHAIN; find /lib/OpenOrbisSDK -maxdepth 4 -type f | grep -Ei '(fself|gp4|PkgTool)' || true; make clean && make pkg"
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/openorbis"
+          curl -fL --retry 3             "https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz"             -o "$RUNNER_TEMP/openorbis.tar.gz"
+          tar -xzf "$RUNNER_TEMP/openorbis.tar.gz" -C "$RUNNER_TEMP/openorbis"
+          PKG_TOOL="$(find "$RUNNER_TEMP/openorbis" -type f -path '*/bin/linux/PkgTool.Core' -print -quit)"
+          if [ -z "$PKG_TOOL" ]; then
+            echo "PkgTool.Core not found"
+            exit 1
+          fi
+          SDK_ROOT="${PKG_TOOL%/bin/linux/PkgTool.Core}"
+          chmod +x "$SDK_ROOT"/bin/linux/* || true
+          echo "OO_PS4_TOOLCHAIN=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "OpenOrbis root: $SDK_ROOT"
+          ls -la "$SDK_ROOT/bin/linux" | head -80
+
+      - name: Build PKG
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd orbisvault-ps4
+          make clean
+          make pkg
 
       - name: Collect artifact
+        shell: bash
         run: |
           mkdir -p artifact
-          cp orbisvault-ps4/*.pkg artifact/ 2>/dev/null || true
-          cp orbisvault-ps4/eboot.bin artifact/ 2>/dev/null || true
-          cp orbisvault-ps4/sce_sys/param.sfo artifact/ 2>/dev/null || true
+          cp orbisvault-ps4/*.pkg artifact/
+          cp orbisvault-ps4/eboot.bin artifact/
+          cp orbisvault-ps4/sce_sys/param.sfo artifact/
           find artifact -maxdepth 1 -type f -print
 
-      - name: Verify PKG exists
-        run: |
-          test -n "$(find artifact -maxdepth 1 -name '*.pkg' -print -quit)"
-
       - name: SHA256
+        shell: bash
         run: |
           cd artifact
           sha256sum * > SHA256SUMS.txt
