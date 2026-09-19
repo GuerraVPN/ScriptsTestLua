@@ -1,7 +1,7 @@
 #include "http_client.hpp"
 #include "native_http.hpp"
 
-#include <orbis/Http.h>
+#include "ps4_http_api.hpp"
 #include <stdio.h>
 
 namespace ov {
@@ -29,7 +29,7 @@ HttpResponse HttpClient::request(const char* method,
     }
 
     int tpl = sceHttpCreateTemplate(
-        nativeHttpContext(), USER_AGENT, ORBIS_HTTP_VERSION_1_1, 1);
+        nativeHttpContext(), USER_AGENT, OV_HTTP_VERSION_1_1, 1);
     if (tpl < 0) {
         result.error = "sceHttpCreateTemplate failed";
         return result;
