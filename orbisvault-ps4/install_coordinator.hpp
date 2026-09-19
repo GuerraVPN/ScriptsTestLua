@@ -28,6 +28,7 @@ public:
 
     bool start(const TitleItem& title);
     void cancel();
+    void shutdown();
     InstallSnapshot snapshot() const;
 
 private:
