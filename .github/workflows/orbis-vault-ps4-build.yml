@@ -22,6 +22,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install host LLVM tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+          command -v clang
+          command -v clang++
+          command -v ld.lld
+
       - name: Install OpenOrbis v0.5.4
         shell: bash
         run: |
