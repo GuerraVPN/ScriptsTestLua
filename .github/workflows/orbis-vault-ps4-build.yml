@@ -18,11 +18,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Pull OpenOrbis toolchain
+        run: docker pull openorbisofficial/toolchain:latest
+
       - name: Build with OpenOrbis Toolchain
-        uses: OpenOrbis/toolchain-action@main
-        with:
-          version: v0.5.1
-          command: cd orbisvault-ps4 && make clean && make pkg
+        run: |
+          docker run --rm             -w /workspace/orbisvault-ps4             -v "$GITHUB_WORKSPACE:/workspace"             openorbisofficial/toolchain:latest             bash -lc "make clean && make pkg"
 
       - name: Collect artifact
         run: |
