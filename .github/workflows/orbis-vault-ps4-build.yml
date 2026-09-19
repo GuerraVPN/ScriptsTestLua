@@ -1,0 +1,51 @@
+name: Orbis Vault PS4 Build
+
+on:
+  push:
+    branches:
+      - orbis-vault-ps4-010
+    paths:
+      - 'orbisvault-ps4/**'
+      - '.github/workflows/orbis-vault-ps4-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build with OpenOrbis Toolchain
+        uses: OpenOrbis/toolchain-action@main
+        with:
+          version: v0.5.1
+          command: cd orbisvault-ps4 && make clean && make pkg
+
+      - name: Collect artifact
+        run: |
+          mkdir -p artifact
+          cp orbisvault-ps4/*.pkg artifact/ 2>/dev/null || true
+          cp orbisvault-ps4/eboot.bin artifact/ 2>/dev/null || true
+          cp orbisvault-ps4/sce_sys/param.sfo artifact/ 2>/dev/null || true
+          find artifact -maxdepth 1 -type f -print
+
+      - name: Verify PKG exists
+        run: |
+          test -n "$(find artifact -maxdepth 1 -name '*.pkg' -print -quit)"
+
+      - name: SHA256
+        run: |
+          cd artifact
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrbisVault-PS4-v0.1
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 7
