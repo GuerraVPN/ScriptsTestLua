@@ -9,20 +9,15 @@ Nenhuma senha de administrador, `SESSION_SECRET` ou credencial Cloudflare é env
 
 ## Pareamento
 
-1. PS4 gera localmente:
-   - `device_id` aleatório;
-   - `device_token` aleatório de alta entropia;
-   - código de 6 dígitos para pareamento.
-2. PS4 envia ao Worker:
-   - device_id;
-   - nome do console;
-   - SHA-256(device_token);
-   - SHA-256(código);
-3. PS4 mostra o código na TV.
-4. Usuário abre Orbis Vault Admin e informa o código.
-5. Admin confirma via rota protegida por Bearer admin.
-6. Worker marca o device como pareado.
-7. PS4 continua usando o token que já gerou localmente.
+1. PS4 gera apenas um `device_id` persistente e envia ao Worker junto com o nome do console.
+2. Worker gera um `device_token` aleatório e um código de 6 dígitos.
+3. O Worker grava somente SHA-256(token) e SHA-256(código) no D1.
+4. Token e código em texto puro são devolvidos uma única vez ao PS4 pela conexão HTTPS.
+5. PS4 salva o token localmente e mostra o código na TV.
+6. Usuário abre Orbis Vault Admin e informa o código.
+7. Admin confirma via rota protegida por Bearer admin.
+8. Worker marca o device como pareado.
+9. Nas chamadas seguintes, o PS4 usa o device token como Bearer.
 
 ## Rotas planejadas
 
