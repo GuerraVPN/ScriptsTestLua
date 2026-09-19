@@ -124,12 +124,18 @@ void InstallCoordinator::run(TitleItem title) {
                 int overall = ((index * 100) + pkgPct) / totalPackages;
                 setState("BAIXANDO " + label, overall);
             },
+            [this]() { return cancelRequested_.load(); },
             true);
 
         if (!result.ok) {
             active_ = false;
-            setState("ERRO", index * 100 / totalPackages, false, true,
-                     "Download falhou: " + result.error);
+            if (result.cancelled || cancelRequested_) {
+                setState("CANCELADO", index * 100 / totalPackages, false, true,
+                         "Instalacao cancelada");
+            } else {
+                setState("ERRO", index * 100 / totalPackages, false, true,
+                         "Download falhou: " + result.error);
+            }
             return;
         }
 
