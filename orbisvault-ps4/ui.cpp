@@ -312,7 +312,16 @@ void AppUi::renderSettings() {
     y+=140;
     fillRect(82,y,1756,110,7,22,42);
     drawText(120,y+26,"INSTALACAO REMOTA",2,159,181,205);
-    drawText(120,y+64,"PRESSIONE X PARA PAREAR COM O APP ANDROID",2,244,248,255,65);
+    if(status_.remotePaired){
+        drawText(120,y+64,"PS4 PAREADO COM O APP ANDROID",2,31,211,138,65);
+        if(!status_.remoteDeviceName.empty())
+            drawText(1160,y+64,status_.remoteDeviceName,2,159,181,205,28);
+    }else if(!status_.pairingCode.empty()){
+        drawText(120,y+64,"CODIGO: "+status_.pairingCode,3,53,200,255,40);
+        drawText(720,y+68,"DIGITE ESTE CODIGO NO CELULAR",2,244,248,255,48);
+    }else{
+        drawText(120,y+64,"PRESSIONE X PARA PAREAR COM O APP ANDROID",2,244,248,255,65);
+    }
 
     y+=140;
     fillRect(82,y,1756,110,7,22,42);
