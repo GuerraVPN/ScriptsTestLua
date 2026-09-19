@@ -5,7 +5,9 @@ function stats(){
 }
 function coverHtml(g){
   if(g.cover_url){
-    return '<div class="cover"><img src="'+esc(g.cover_url)+'" onerror="this.parentNode.innerHTML=\'🎮\'"></div>';
+    const sep=String(g.cover_url).includes("?")?"&":"?";
+    const src=String(g.cover_url)+sep+"v="+encodeURIComponent(catalog.revision||0);
+    return '<div class="cover"><img src="'+esc(src)+'" onerror="this.parentNode.innerHTML=\'🎮\'"></div>';
   }
   return '<div class="cover">🎮</div>';
 }
@@ -113,9 +115,10 @@ function renderMore(){
   document.getElementById("view").innerHTML='<h2>Mais</h2><p class="sub">Configurações e informações.</p>'+
     menu("👤","Conta",sessionStorage.getItem("ov_email")||"Administrador","Toque para sair","logout()")+
     menu("🎮","Consoles PS4","Pareamento e instalação remota","Gerenciar","showConsoleManager()")+
+    menu("⇩","Instalações remotas","Fila e progresso do PS4","Ver status","showRemoteJobs()")+
     menu("☁️","Servidor","Cloudflare Worker",API,"toast(\'API conectada ao Orbis Vault.\')")+
     menu("💾","Cache","Catálogo local de contingência","Revision "+catalog.revision,"toast(\'O cache é usado quando a API estiver indisponível.\')")+
-    menu("ℹ️","Sobre","Orbis Vault Admin","v0.3.0 • build 3","toast(\'Orbis Vault Admin v0.3.0\')");
+    menu("ℹ️","Sobre","Orbis Vault Admin","v0.4.0 • build 4","toast(\'Orbis Vault Admin v0.4.0\')");
 }
 function menu(i,t,s,r,a){
   return '<div class="menuitem" onclick="'+a+'"><div class="mi">'+i+'</div><div class="mt"><b>'+esc(t)+'</b><small>'+esc(s)+'</small><small class="blue">'+esc(r)+'</small></div><div>›</div></div>';
