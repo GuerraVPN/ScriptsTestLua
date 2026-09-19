@@ -76,6 +76,8 @@ async function details(id){
     '<div class="kv"><span>Updates</span><b>'+((g.updates||[]).length)+'</b></div><div class="kv"><span>DLCs</span><b>'+((g.dlcs||[]).length)+'</b></div></div>'+
     '<div class="section-title"><b>Pacotes</b></div>'+packages.map(packageRow).join('')+
     (packages.length?'':'<div class="note">Nenhum package cadastrado.</div>')+
+    '<div class="section-title"><b>Instalação remota</b></div>'+
+    '<button class="primary" onclick="installOnPs4('+Number(g.id)+')">Instalar no PS4</button><div style="height:12px"></div>'+
     '<div class="section-title"><b>Administrar</b></div>'+
     '<button class="secondary" onclick="editTitle('+Number(g.id)+')">Editar informações</button><div style="height:8px"></div>'+
     '<button class="secondary" onclick="uploadCover('+Number(g.id)+',\''+esc(g.title_id)+'\')">Trocar capa</button><div style="height:8px"></div>'+
@@ -110,6 +112,7 @@ async function manualSync(){
 function renderMore(){
   document.getElementById("view").innerHTML='<h2>Mais</h2><p class="sub">Configurações e informações.</p>'+
     menu("👤","Conta",sessionStorage.getItem("ov_email")||"Administrador","Toque para sair","logout()")+
+    menu("🎮","Consoles PS4","Pareamento e instalação remota","Gerenciar","showConsoleManager()")+
     menu("☁️","Servidor","Cloudflare Worker",API,"toast(\'API conectada ao Orbis Vault.\')")+
     menu("💾","Cache","Catálogo local de contingência","Revision "+catalog.revision,"toast(\'O cache é usado quando a API estiver indisponível.\')")+
     menu("ℹ️","Sobre","Orbis Vault Admin","v0.3.0 • build 3","toast(\'Orbis Vault Admin v0.3.0\')");
