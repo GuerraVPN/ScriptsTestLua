@@ -70,7 +70,7 @@ async function installOnPs4(titleId){
     }
 
     if(ready.length===1){
-      await sendInstallCommand(ready[0],game);
+      showPackagePicker(ready[0],game);
       return;
     }
 
@@ -88,19 +88,67 @@ async function installOnPs4(titleId){
 async function sendInstallById(deviceId,titleDbId){
   const game=catalog.catalog.find(x=>Number(x.id)===Number(titleDbId));
   const device=ovDevices.find(d=>d.device_id===deviceId);
-  if(game&&device)await sendInstallCommand(device,game);
+  if(game&&device)showPackagePicker(device,game);
 }
 
-async function sendInstallCommand(device,game){
+function gamePackages(game){
+  const arr=[];
+  if(game.base&&game.base.id)arr.push({...game.base,_label:"Base"});
+  (game.updates||[]).forEach(p=>arr.push({...p,_label:"Update"}));
+  (game.dlcs||[]).forEach(p=>arr.push({...p,_label:"DLC"}));
+  return arr;
+}
+
+function showPackagePicker(device,game){
+  const packages=gamePackages(game);
+  const latestUpdate=(game.updates||[]).slice().sort((a,b)=>String(b.version||"").localeCompare(String(a.version||"")))[0];
+
+  let html='<h2>Instalar no PS4</h2>'+
+    '<p class="sub">'+esc(game.name)+' → '+esc(device.device_name||device.device_id)+'</p>'+
+    '<div class="note">Selecione o que deseja enviar. Para um jogo ainda não instalado, mantenha a Base marcada.</div>';
+
+  if(!packages.length){
+    html+='<div class="note error">Nenhum pacote cadastrado para este título.</div>';
+  }else{
+    html+=packages.map(p=>{
+      const checked=(p._label==="Base" || p._label==="DLC" || (latestUpdate&&Number(p.id)===Number(latestUpdate.id)))?" checked":"";
+      const meta=[p._label,p.version?("v"+p.version):""].filter(Boolean).join(" • ");
+      return '<label class="menuitem" style="cursor:pointer">'+
+        '<input class="remotePkgCheck" type="checkbox" value="'+Number(p.id)+'"'+checked+' style="width:22px;height:22px;margin-right:12px">'+
+        '<div class="mt"><b>'+esc(p.name||p._label)+'</b><small>'+esc(meta)+'</small></div></label>';
+    }).join('');
+
+    html+='<div style="height:12px"></div>'+
+      '<button class="primary" onclick="sendSelectedInstall(\''+esc(device.device_id)+'\','+Number(game.id)+')">Instalar selecionados</button>'+
+      '<button class="secondary" style="margin-top:8px" onclick="sendInstallCommandByMode(\''+esc(device.device_id)+'\','+Number(game.id)+',\'INSTALL_ALL\',[])">Instalar tudo automaticamente</button>';
+  }
+
+  document.getElementById("sheet").innerHTML=html;
+}
+
+async function sendSelectedInstall(deviceId,titleDbId){
+  const ids=[...document.querySelectorAll(".remotePkgCheck:checked")].map(x=>Number(x.value)).filter(Number.isInteger);
+  if(!ids.length){toast("Selecione pelo menos um pacote.");return}
+  await sendInstallCommandByMode(deviceId,titleDbId,"INSTALL_SELECTED",ids);
+}
+
+async function sendInstallCommandByMode(deviceId,titleDbId,action,packageIds){
+  const game=catalog.catalog.find(x=>Number(x.id)===Number(titleDbId));
+  const device=ovDevices.find(d=>d.device_id===deviceId);
+  if(!game||!device){toast("PS4 ou título não encontrado.");return}
+  return sendInstallCommand(device,game,action,packageIds);
+}
+
+async function sendInstallCommand(device,game,action="INSTALL_ALL",packageIds=[]){
   try{
     const d=await api("/api/admin/device/commands",{
       method:"POST",
       body:JSON.stringify({
         device_id:device.device_id,
-        action:"INSTALL_ALL",
+        action:action,
         title_db_id:Number(game.id),
         title_id:game.title_id,
-        package_ids:[]
+        package_ids:packageIds
       })
     },true);
     toast("Instalacao enviada para "+(device.device_name||"PS4")+".");
