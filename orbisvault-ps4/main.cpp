@@ -22,6 +22,12 @@ static void ensureDataDirs() {
     mkdir(DOWNLOAD_DIR, 0777);
 }
 
+static void refreshInstalledState(Installer& installer, Catalog& catalog) {
+    for (auto& title : catalog.titles) {
+        title.installed = installer.isInstalled(title.titleId);
+    }
+}
+
 static bool syncCatalog(CatalogClient& client,
                         CoverCache& covers,
                         Catalog& catalog,
@@ -87,6 +93,7 @@ int main() {
 
     Installer installer;
     const bool installerReady = installer.initialize();
+    if (installerReady) refreshInstalledState(installer, catalog);
 
     InstallCoordinator coordinator(installer);
 
@@ -110,6 +117,7 @@ int main() {
     long activeRemoteCommand = 0;
     int lastReportedProgress = -1;
     std::string lastReportedStage;
+    std::string installedRefreshFor;
 
     while (ui.running()) {
         const UiAction action = ui.update();
@@ -122,6 +130,7 @@ int main() {
             InstallSnapshot job = coordinator.snapshot();
             if (!job.active) {
                 syncCatalog(catalogClient, coverCache, catalog, uiStatus);
+                if (installerReady) refreshInstalledState(installer, catalog);
                 ui.setCatalog(&catalog);
             } else {
                 uiStatus.message = "AGUARDE O DOWNLOAD ATIVO";
@@ -134,10 +143,19 @@ int main() {
             if (!installerReady) {
                 uiStatus.message = "INSTALADOR NATIVO NAO INICIALIZADO";
             } else if (coordinator.start(catalog.titles[action.titleIndex])) {
+                installedRefreshFor.clear();
                 uiStatus.message = "INSTALACAO ADICIONADA";
             } else {
                 uiStatus.message = "JA EXISTE UMA INSTALACAO ATIVA";
             }
+        }
+
+        if (action.type == UiActionType::OpenSelected &&
+            action.titleIndex >= 0 &&
+            action.titleIndex < static_cast<int>(catalog.titles.size())) {
+            InstallResult opened =
+                installer.launchTitle(catalog.titles[action.titleIndex].titleId);
+            uiStatus.message = opened.message;
         }
 
         if (action.type == UiActionType::StartPairing) {
@@ -220,6 +238,7 @@ int main() {
 
                         if (cmd.action == "SYNC_CATALOG") {
                             syncCatalog(catalogClient, coverCache, catalog, uiStatus);
+                            if (installerReady) refreshInstalledState(installer, catalog);
                             ui.setCatalog(&catalog);
                             remote.updateStatus(device, cmd.id, "COMPLETED", 100,
                                                 "Catalogo sincronizado", remoteError);
@@ -231,6 +250,7 @@ int main() {
                              cmd.action == "INSTALL_SELECTED") &&
                             selected) {
                             if (coordinator.start(*selected)) {
+                                installedRefreshFor.clear();
                                 activeRemoteCommand = cmd.id;
                                 lastReportedProgress = -1;
                                 lastReportedStage.clear();
@@ -265,8 +285,13 @@ int main() {
 
         if (job.failed && !job.error.empty())
             uiStatus.message = job.error;
-        else if (job.completed)
+        else if (job.completed) {
             uiStatus.message = "INSTALACAO CONCLUIDA";
+            if (!job.titleId.empty() && installedRefreshFor != job.titleId) {
+                refreshInstalledState(installer, catalog);
+                installedRefreshFor = job.titleId;
+            }
+        }
 
         if (activeRemoteCommand != 0 &&
             (job.progress != lastReportedProgress ||
