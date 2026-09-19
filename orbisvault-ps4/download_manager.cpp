@@ -18,6 +18,7 @@ static uint64_t localFileSize(const std::string& path) {
 DownloadResult DownloadManager::download(const PackageItem& pkg,
                                          const std::string& destination,
                                          ProgressCallback progress,
+                                         CancelCallback shouldCancel,
                                          bool resume) {
     DownloadResult out;
     out.localPath = destination;
@@ -110,6 +111,12 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
     uint64_t downloaded = existing;
 
     for (;;) {
+        if (shouldCancel && shouldCancel()) {
+            out.cancelled = true;
+            out.error = "cancelled";
+            break;
+        }
+
         const int read = sceHttpReadData(req, buffer, sizeof(buffer));
         if (read < 0) {
             out.error = "sceHttpReadData failed";
@@ -129,6 +136,12 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
 
         downloaded += static_cast<uint64_t>(read);
         if (progress) progress(downloaded, total, 0.0);
+
+        if (shouldCancel && shouldCancel()) {
+            out.cancelled = true;
+            out.error = "cancelled";
+            break;
+        }
     }
 
     fclose(file);
