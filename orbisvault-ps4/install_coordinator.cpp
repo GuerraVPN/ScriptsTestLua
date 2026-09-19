@@ -14,8 +14,7 @@ InstallCoordinator::InstallCoordinator(Installer& installer)
     : installer_(installer) {}
 
 InstallCoordinator::~InstallCoordinator() {
-    cancelRequested_ = true;
-    if (worker_.joinable()) worker_.join();
+    shutdown();
 }
 
 void InstallCoordinator::setState(const std::string& stage, int progress,
@@ -66,6 +65,12 @@ bool InstallCoordinator::start(const TitleItem& title) {
 
 void InstallCoordinator::cancel() {
     cancelRequested_ = true;
+}
+
+void InstallCoordinator::shutdown() {
+    cancelRequested_ = true;
+    if (worker_.joinable()) worker_.join();
+    active_ = false;
 }
 
 InstallSnapshot InstallCoordinator::snapshot() const {
