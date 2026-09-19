@@ -50,6 +50,17 @@ async function saveGame(){
     for(const p of parseDlcs(document.getElementById("fDlcs").value)){
       if(p.source_url) await api("/api/titles/"+id+"/packages",{method:"POST",body:JSON.stringify(p)},true);
     }
+    const cover=document.getElementById("fCover").files[0];
+    if(cover){
+      const fd=new FormData();
+      fd.append("file",cover);
+      fd.append("title_id",info.title_id);
+      const up=await api("/api/upload/cover",{method:"POST",body:fd},true);
+      if(up.url){
+        info.cover_url=up.url;
+        await api("/api/titles/"+id,{method:"PUT",body:JSON.stringify(info)},true);
+      }
+    }
     msg.innerHTML='<div class="note success">Cadastro concluído.</div>';
     await refreshCatalog();toast("Jogo salvo no Cloudflare.");setTimeout(()=>go("games"),450);
   }catch(e){
