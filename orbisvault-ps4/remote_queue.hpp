@@ -10,6 +10,7 @@ struct RemoteCommand {
     long id = 0;
     std::string action;
     int titleDbId = 0;
+    std::string titleId;
     std::vector<int> packageIds;
 };
 
@@ -27,6 +28,8 @@ public:
                       int progress,
                       const std::string& message,
                       std::string& error);
+
+    bool heartbeat(const DeviceIdentity& device, std::string& error);
 
 private:
     HttpClient& http_;
