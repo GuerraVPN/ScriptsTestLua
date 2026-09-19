@@ -9,6 +9,7 @@ namespace ov {
 struct RemoteCommand {
     long id = 0;
     std::string action;
+    std::string status;
     int titleDbId = 0;
     std::string titleId;
     std::vector<int> packageIds;
