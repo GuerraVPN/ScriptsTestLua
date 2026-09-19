@@ -22,6 +22,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check integrated Worker syntax
+        shell: bash
+        run: |
+          cp orbisvault-ps4/backend/orbis-vault-worker-v04.js /tmp/orbis-vault-worker-v04.mjs
+          node --check /tmp/orbis-vault-worker-v04.mjs
+
       - name: Install host LLVM tools
         shell: bash
         run: |
