@@ -2,8 +2,26 @@
 
 #ifdef ORBIS_VAULT_NATIVE_INSTALL
 #include <orbis/AppInstUtil.h>
-#include <orbis/SystemService.h>
 #include <orbis/UserService.h>
+#include <stdint.h>
+
+enum OvLaunchAppFlag : int32_t {
+    OV_LAUNCH_NONE = 0,
+    OV_LAUNCH_SKIP_SYSTEM_UPDATE = 2
+};
+
+struct OvLncAppParam {
+    uint32_t size;
+    uint32_t user_id;
+    uint32_t app_opt;
+    uint64_t crash_report;
+    OvLaunchAppFlag check_flag;
+};
+
+extern "C" int32_t sceSystemServiceLaunchApp(
+    const char* title_id,
+    const char* argv[],
+    OvLncAppParam* param);
 #endif
 
 namespace ov {
@@ -65,12 +83,12 @@ InstallResult Installer::launchTitle(const std::string& titleId) {
         return out;
     }
 
-    LncAppParam param{};
-    param.size = sizeof(LncAppParam);
+    OvLncAppParam param{};
+    param.size = sizeof(OvLncAppParam);
     param.user_id = static_cast<uint32_t>(userId);
     param.app_opt = 0;
     param.crash_report = 0;
-    param.LaunchAppCheck_flag = LaunchApp_SkipSystemUpdate;
+    param.check_flag = OV_LAUNCH_SKIP_SYSTEM_UPDATE;
 
     const char* argv[] = { nullptr };
     rc = sceSystemServiceLaunchApp(titleId.c_str(), argv, &param);
