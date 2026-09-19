@@ -19,6 +19,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Admin JavaScript
+        shell: bash
+        run: |
+          for f in orbisvault/app/src/main/assets/*.js; do
+            echo "Checking $f"
+            node --check "$f"
+          done
+
       - name: Java 17
         uses: actions/setup-java@v5
         with:
