@@ -6,13 +6,13 @@ CONTENT_ID  := IV0000-BREW00901_00-ORBISVAULTPS4001
 
 # 0 = transport/catalog scaffold only
 # 1 = link SceAppInstUtil adapter for authorized local packages
-NATIVE_INSTALL ?= 0
+NATIVE_INSTALL ?= 1
 
 # libc++ threading support in the OpenOrbis SDK expects nanosleep to be declared
 # before standard C++ headers are parsed.
 EXTRAFLAGS := -include compat.hpp
 
-LIBS := -lc -lkernel -lc++ -lSceNet -lSceSsl -lSceHttp -lSceSysmodule
+LIBS := -lc -lkernel -lc++ -lSceNet -lSceSsl -lSceHttp -lSceSysmodule -lSceUserService -lSceVideoOut -lScePad -lSDL2 -lSDL2_image
 
 ifeq ($(NATIVE_INSTALL),1)
     EXTRAFLAGS += -DORBIS_VAULT_NATIVE_INSTALL
