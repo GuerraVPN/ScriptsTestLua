@@ -10,7 +10,7 @@ NATIVE_INSTALL ?= 0
 
 # libc++ threading support in the OpenOrbis SDK expects nanosleep to be declared
 # before standard C++ headers are parsed.
-EXTRAFLAGS := -include time.h
+EXTRAFLAGS := -include compat.hpp
 
 LIBS := -lc -lkernel -lc++ -lcurl
 
