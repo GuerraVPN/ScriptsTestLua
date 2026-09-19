@@ -27,6 +27,7 @@ struct TitleItem {
     std::string region;
     std::string coverUrl;
     bool featured = false;
+    bool installed = false;
 
     PackageItem base;
     bool hasBase = false;
