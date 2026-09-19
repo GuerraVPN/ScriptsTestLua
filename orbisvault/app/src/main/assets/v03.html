@@ -22,13 +22,16 @@ button,input,textarea,select{font:inherit}.hidden{display:none!important}.screen
 </style>
 </head>
 <body>
-<div id="splash" class="screen"><div class="vaultlogo"><i></i></div><div class="logo">ORBIS <b>VAULT</b></div><div class="tag">Gerencie seu catálogo PS4</div><div class="loader"><i></i></div><small class="muted">v0.3.0</small></div>
+<div id="splash" class="screen"><div class="vaultlogo"><i></i></div><div class="logo">ORBIS <b>VAULT</b></div><div class="tag">Gerencie seu catálogo PS4</div><div class="loader"><i></i></div><small class="muted">v0.4.0</small></div>
 <div id="login" class="screen hidden"><div class="loginbox"><div class="vaultlogo mini"><i></i></div><div class="logo" style="text-align:center;font-size:25px">ORBIS <b>VAULT</b></div><h1>Entre na sua conta</h1><p>Admin conectado ao Cloudflare.</p><input id="loginEmail" class="field" type="email" placeholder="E-mail"><input id="loginPass" class="field" type="password" placeholder="Senha"><button id="loginBtn" class="primary" onclick="login()">Entrar</button><div id="loginMsg"></div><div class="note">A senha não fica salva no aplicativo. O token de sessão é temporário.</div></div></div>
 <div id="app" class="screen hidden"><header class="top"><div class="topline"><div class="brand">ORBIS <b>VAULT</b> <small class="muted">ADMIN</small></div><div class="avatar" onclick="logout()">👤</div></div></header><main id="view" class="content"></main><nav class="bottom"><button class="nav active" data-view="home" onclick="go('home')"><span>⌂</span>Início</button><button class="nav" data-view="games" onclick="go('games')"><span>🎮</span>Jogos</button><button class="nav add" data-view="add" onclick="go('add')"><span>＋</span>Adicionar</button><button class="nav" data-view="sync" onclick="go('sync')"><span>⇅</span>Sincronizar</button><button class="nav" data-view="more" onclick="go('more')"><span>•••</span>Mais</button></nav></div>
 <div id="toast" class="toast"></div><div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()"><div id="sheet" class="sheet"></div></div>
 <script src="core-v03.js"></script>
 <script src="views-v03.js"></script>
-<script src="create-v03.js"></script>\n<script src="edit-v03.js"></script>\n<script src="delete-v03.js"></script>\n<script src="cover-v03.js"></script>
+<script src="create-v03.js"></script>
+<script src="edit-v03.js"></script>
+<script src="delete-v03.js"></script>
+<script src="cover-v03.js"></script>
 <script src="remote-v04.js"></script>
 </body>
 </html>
