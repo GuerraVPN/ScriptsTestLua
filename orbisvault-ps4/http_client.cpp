@@ -1,81 +1,118 @@
 #include "http_client.hpp"
-#include "config.hpp"
-#include <curl/curl.h>
+#include "native_http.hpp"
+
+#include <orbis/Http.h>
+#include <stdio.h>
 
 namespace ov {
 
-static size_t write_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
-    auto* out = static_cast<std::string*>(userdata);
-    out->append(ptr, size * nmemb);
-    return size * nmemb;
-}
+static constexpr const char* USER_AGENT = "OrbisVault/0.1 (PlayStation 4)";
 
 HttpClient::HttpClient() {
-    curl_global_init(CURL_GLOBAL_DEFAULT);
+    ensureNativeHttp();
 }
 
 HttpClient::~HttpClient() {
-    curl_global_cleanup();
+    // Runtime is shared with the streaming downloader and remains alive
+    // for the application lifetime. main() performs final shutdown.
 }
 
-HttpResponse HttpClient::request(const char* method, const std::string& url,
+HttpResponse HttpClient::request(const char* method,
+                                 const std::string& url,
                                  const std::string& body,
                                  const std::string& bearer) {
     HttpResponse result;
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        result.error = "curl_easy_init failed";
+
+    if (!ensureNativeHttp()) {
+        result.error = "native HTTP initialization failed";
         return result;
     }
 
-    struct curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, "Accept: application/json");
+    int tpl = sceHttpCreateTemplate(
+        nativeHttpContext(), USER_AGENT, ORBIS_HTTP_VERSION_1_1, 1);
+    if (tpl < 0) {
+        result.error = "sceHttpCreateTemplate failed";
+        return result;
+    }
 
-    if (body.size()) {
-        headers = curl_slist_append(headers, "Content-Type: application/json");
+    int conn = sceHttpCreateConnectionWithURL(tpl, url.c_str(), true);
+    if (conn < 0) {
+        sceHttpDeleteTemplate(tpl);
+        result.error = "sceHttpCreateConnectionWithURL failed";
+        return result;
+    }
+
+    const uint64_t contentLength = static_cast<uint64_t>(body.size());
+    int req = sceHttpCreateRequestWithURL2(
+        conn, method, url.c_str(), contentLength);
+
+    if (req < 0) {
+        sceHttpDeleteConnection(conn);
+        sceHttpDeleteTemplate(tpl);
+        result.error = "sceHttpCreateRequestWithURL2 failed";
+        return result;
+    }
+
+    sceHttpAddRequestHeader(req, "Accept", "application/json", 0);
+
+    if (!body.empty()) {
+        sceHttpAddRequestHeader(
+            req, "Content-Type", "application/json; charset=utf-8", 0);
     }
 
     std::string auth;
     if (!bearer.empty()) {
-        auth = "Authorization: Bearer " + bearer;
-        headers = curl_slist_append(headers, auth.c_str());
+        auth = "Bearer " + bearer;
+        sceHttpAddRequestHeader(req, "Authorization", auth.c_str(), 0);
     }
 
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result.body);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, HTTP_TIMEOUT_SECONDS);
+    const void* sendBody = body.empty() ? nullptr : body.data();
+    const size_t sendSize = body.size();
 
-    if (std::string(method) != "GET") {
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(body.size()));
+    int rc = sceHttpSendRequest(req, sendBody, sendSize);
+    if (rc < 0) {
+        result.error = "sceHttpSendRequest failed";
+        sceHttpDeleteRequest(req);
+        sceHttpDeleteConnection(conn);
+        sceHttpDeleteTemplate(tpl);
+        return result;
     }
 
-    CURLcode rc = curl_easy_perform(curl);
-    if (rc != CURLE_OK) {
-        result.error = curl_easy_strerror(rc);
+    int32_t status = 0;
+    if (sceHttpGetStatusCode(req, &status) >= 0) {
+        result.status = static_cast<long>(status);
     }
 
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &result.status);
+    char buffer[32 * 1024];
+    for (;;) {
+        const int read = sceHttpReadData(req, buffer, sizeof(buffer));
+        if (read < 0) {
+            result.error = "sceHttpReadData failed";
+            break;
+        }
+        if (read == 0) break;
+        result.body.append(buffer, static_cast<size_t>(read));
+    }
 
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
+    sceHttpDeleteRequest(req);
+    sceHttpDeleteConnection(conn);
+    sceHttpDeleteTemplate(tpl);
     return result;
 }
 
-HttpResponse HttpClient::get(const std::string& url, const std::string& bearer) {
+HttpResponse HttpClient::get(const std::string& url,
+                             const std::string& bearer) {
     return request("GET", url, "", bearer);
 }
 
-HttpResponse HttpClient::postJson(const std::string& url, const std::string& json,
+HttpResponse HttpClient::postJson(const std::string& url,
+                                  const std::string& json,
                                   const std::string& bearer) {
     return request("POST", url, json, bearer);
 }
 
-HttpResponse HttpClient::patchJson(const std::string& url, const std::string& json,
+HttpResponse HttpClient::patchJson(const std::string& url,
+                                   const std::string& json,
                                    const std::string& bearer) {
     return request("PATCH", url, json, bearer);
 }
