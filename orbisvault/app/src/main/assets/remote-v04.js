@@ -25,8 +25,8 @@ async function showConsoleManager(){
       html+='<div class="note">Nenhum PS4 pareado ainda. Abra o Orbis Vault no console, escolha Parear e informe aqui o codigo exibido na TV.</div>';
     }else{
       html+=list.map(d=>
-        '<div class="menuitem"><div class="mi">🎮</div><div class="mt"><b>'+esc(d.device_name||"PS4")+'</b>'+
-        '<small>'+esc(d.device_id)+'</small><small class="'+(d.paired&&d.enabled?'green':'muted')+'">'+esc(deviceStateText(d))+'</small></div></div>'
+        '<div class="menuitem" onclick="showRemoteJobs(\''+esc(d.device_id)+'\')"><div class="mi">🎮</div><div class="mt"><b>'+esc(d.device_name||"PS4")+'</b>'+
+        '<small>'+esc(d.device_id)+'</small><small class="'+(d.paired&&d.enabled?'green':'muted')+'">'+esc(deviceStateText(d))+'</small></div><div>›</div></div>'
       ).join('');
     }
     document.getElementById("sheet").innerHTML=html;
@@ -103,10 +103,71 @@ async function sendInstallCommand(device,game){
         package_ids:[]
       })
     },true);
-    closeModal();
     toast("Instalacao enviada para "+(device.device_name||"PS4")+".");
+    await showRemoteJobs(device.device_id);
     return d;
   }catch(e){
     toast(e.message);
+  }
+}
+
+
+let remoteStatusTimer=null;
+
+function remoteStatusClass(status){
+  if(status==="COMPLETED")return "green";
+  if(status==="ERROR"||status==="CANCELLED")return "error";
+  return "blue";
+}
+
+function remoteCommandLabel(c){
+  if(c.action==="INSTALL_ALL")return "Instalar tudo";
+  if(c.action==="INSTALL_SELECTED")return "Instalar selecionados";
+  if(c.action==="SYNC_CATALOG")return "Sincronizar catálogo";
+  if(c.action==="CANCEL_COMMAND")return "Cancelar";
+  return c.action||"Comando";
+}
+
+async function showRemoteJobs(deviceId=""){
+  if(remoteStatusTimer){clearInterval(remoteStatusTimer);remoteStatusTimer=null}
+  document.getElementById("modal").classList.remove("hidden");
+  document.getElementById("sheet").innerHTML=
+    '<h2>Instalações remotas</h2><p class="sub">Consultando o PS4...</p>'+
+    '<div class="loading">Atualizando...</div>';
+  await refreshRemoteJobs(deviceId);
+  remoteStatusTimer=setInterval(()=>refreshRemoteJobs(deviceId),4000);
+}
+
+async function refreshRemoteJobs(deviceId=""){
+  const modal=document.getElementById("modal");
+  if(!modal||modal.classList.contains("hidden")){
+    if(remoteStatusTimer){clearInterval(remoteStatusTimer);remoteStatusTimer=null}
+    return;
+  }
+  try{
+    const qs=deviceId?("?device_id="+encodeURIComponent(deviceId)+"&limit=20"):"?limit=20";
+    const d=await api("/api/admin/device/commands"+qs,{},true);
+    const arr=Array.isArray(d.commands)?d.commands:[];
+    let html='<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Instalações remotas</h2><button class="iconbtn" onclick="closeModal()">✕</button></div>'+
+      '<p class="sub">Atualização automática a cada 4 segundos.</p>';
+    if(!arr.length){
+      html+='<div class="note">Nenhum comando remoto encontrado.</div>';
+    }else{
+      html+=arr.map(c=>{
+        const p=Math.max(0,Math.min(100,Number(c.progress||0)));
+        const title=c.title_id||("Título #"+(c.title_db_id||"-"));
+        return '<div class="card" style="margin:10px 0">'+
+          '<div class="kv"><span>'+esc(remoteCommandLabel(c))+'</span><b class="'+remoteStatusClass(c.status)+'">'+esc(c.status||"-")+'</b></div>'+
+          '<div class="kv"><span>'+esc(title)+'</span><b>'+p+'%</b></div>'+
+          '<div style="height:8px;background:#08182b;border-radius:999px;overflow:hidden;margin-top:10px"><div style="height:100%;width:'+p+'%;background:#168cff"></div></div>'+
+          (c.message?'<small class="muted" style="display:block;margin-top:9px">'+esc(c.message)+'</small>':'')+
+          '</div>';
+      }).join('');
+    }
+    document.getElementById("sheet").innerHTML=html;
+  }catch(e){
+    document.getElementById("sheet").innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Instalações remotas</h2><button class="iconbtn" onclick="closeModal()">✕</button></div>'+
+      '<div class="note error">'+esc(e.message)+'</div>';
   }
 }
