@@ -22,6 +22,7 @@ const DEVICE_STATES = new Set([
   "INSTALLING",
   "COMPLETED",
   "ERROR",
+  "CANCEL_REQUESTED",
   "CANCELLED"
 ]);
 
@@ -347,6 +348,44 @@ async function handleAdminListDeviceCommands(env, url) {
   return json({ commands });
 }
 
+// ADMIN: requests cancellation of an in-flight command.
+async function handleAdminCancelDeviceCommand(env, commandIdStr) {
+  await ensureRemoteSchema(env);
+
+  const id = Number(commandIdStr);
+  if (!Number.isInteger(id) || id <= 0) {
+    return json({ error: "Invalid command id" }, 400);
+  }
+
+  const row = await env.DB.prepare(
+    "SELECT id, status FROM device_commands WHERE id = ?"
+  ).bind(id).first();
+
+  if (!row) return json({ error: "Command not found" }, 404);
+
+  if (["COMPLETED", "ERROR", "CANCELLED"].includes(row.status)) {
+    return json({
+      id,
+      status: row.status,
+      message: "Command is already finished"
+    });
+  }
+
+  await env.DB.prepare(
+    `UPDATE device_commands
+       SET status = 'CANCEL_REQUESTED',
+           message = 'Cancelamento solicitado pelo aplicativo',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`
+  ).bind(id).run();
+
+  return json({
+    id,
+    status: "CANCEL_REQUESTED",
+    message: "Cancellation requested"
+  });
+}
+
 // DEVICE: fetches pending/current commands.
 async function handleDeviceCommands(request, env, url) {
   await ensureRemoteSchema(env);
@@ -363,7 +402,7 @@ async function handleDeviceCommands(request, env, url) {
             status, progress, message, created_at, started_at, completed_at, updated_at
        FROM device_commands
        WHERE device_id = ?
-         AND status IN ('QUEUED','ACCEPTED','DOWNLOADING','VERIFYING','INSTALLING')
+         AND status IN ('QUEUED','ACCEPTED','DOWNLOADING','VERIFYING','INSTALLING','CANCEL_REQUESTED')
        ORDER BY id ASC
        LIMIT 20`
   ).bind(deviceId).all();
