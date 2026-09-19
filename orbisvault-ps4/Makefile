@@ -19,9 +19,9 @@ ASSETS      := $(wildcard assets/**/*)
 LIBMODULES  := $(wildcard sce_module/*)
 
 TOOLCHAIN   := $(OO_PS4_TOOLCHAIN)
-PROJDIR     := $(shell basename $(CURDIR))
+PROJDIR     := .
 COMMONDIR   := $(TOOLCHAIN)/samples/_common
-INTDIR      := $(PROJDIR)/x64/Debug
+INTDIR      := x64/Debug
 
 CFILES      := $(wildcard *.c)
 CPPFILES    := $(wildcard *.cpp)
@@ -68,8 +68,8 @@ sce_sys/param.sfo: Makefile
 	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ VERSION --type Utf8 --maxsize 8 --value '$(VERSION)'
 
 eboot.bin: $(OBJS)
-	$(LD) $(OBJS) -o $(INTDIR)/$(PROJDIR).elf $(LDFLAGS)
-	$(TOOLCHAIN)/bin/$(CDIR)/create-fself -in=$(INTDIR)/$(PROJDIR).elf -out=$(INTDIR)/$(PROJDIR).oelf --eboot eboot.bin --paid 0x3800000000000011
+	$(LD) $(OBJS) -o $(INTDIR)/orbis-vault.elf $(LDFLAGS)
+	$(TOOLCHAIN)/bin/$(CDIR)/create-fself -in=$(INTDIR)/orbis-vault.elf -out=$(INTDIR)/orbis-vault.oelf --eboot eboot.bin --paid 0x3800000000000011
 
 $(INTDIR)/%.o: %.c
 	$(CC) $(CFLAGS) -o $@ $<
