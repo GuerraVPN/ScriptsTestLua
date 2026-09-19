@@ -8,6 +8,10 @@ CONTENT_ID  := IV0000-BREW00901_00-ORBISVAULTPS4001
 # 1 = link SceAppInstUtil adapter for authorized local packages
 NATIVE_INSTALL ?= 0
 
+# libc++ threading support in the OpenOrbis SDK expects nanosleep to be declared
+# before standard C++ headers are parsed.
+EXTRAFLAGS := -include time.h
+
 LIBS := -lc -lkernel -lc++ -lcurl
 
 ifeq ($(NATIVE_INSTALL),1)
