@@ -1,23 +1,13 @@
 # Orbis Vault PS4
 TITLE       := Orbis Vault
-VERSION     := 0.10
-TITLE_ID    := BREW00901
-CONTENT_ID  := IV0000-BREW00901_00-ORBISVAULTPS4001
+VERSION     := 0.20
+TITLE_ID    := BREW00902
+CONTENT_ID  := IV0000-BREW00902_00-ORBISVAULTSAFE01
 
-# 0 = transport/catalog scaffold only
-# 1 = link SceAppInstUtil adapter for authorized local packages
-NATIVE_INSTALL ?= 1
-
-# libc++ threading support in the OpenOrbis SDK expects nanosleep to be declared
-# before standard C++ headers are parsed.
+# SAFE 0.2 links only libraries used by the official SDL sample.
+# Network, AppInstUtil and SystemService are loaded dynamically after the UI boots.
 EXTRAFLAGS := -include compat.hpp
-
-LIBS := -lc -lkernel -lc++ -lSceNet -lSceSsl -lSceHttp -lSceSysmodule -lSceUserService -lSceSystemService -lSceVideoOut -lSceAudioOut -lScePad -lSDL2 -lSDL2_image
-
-ifeq ($(NATIVE_INSTALL),1)
-    EXTRAFLAGS += -DORBIS_VAULT_NATIVE_INSTALL
-    LIBS += -lSceAppInstUtil
-endif
+LIBS := -lc -lkernel -lc++ -lSceUserService -lSceVideoOut -lSceAudioOut -lScePad -lSceSysmodule -lSceFreeType -lSDL2 -lSDL2_image
 
 ASSETS      := $(wildcard assets/**/*)
 LIBMODULES  := $(wildcard sce_module/*)
@@ -73,6 +63,8 @@ sce_sys/param.sfo: Makefile
 	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ TITLE --type Utf8 --maxsize 128 --value '$(TITLE)'
 	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ TITLE_ID --type Utf8 --maxsize 12 --value '$(TITLE_ID)'
 	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ VERSION --type Utf8 --maxsize 8 --value '$(VERSION)'
+	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ PARENTAL_LEVEL --type Integer --maxsize 4 --value 0
+	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core sfo_setentry $@ REMOTE_PLAY_KEY_ASSIGN --type Integer --maxsize 4 --value 0
 
 eboot.bin: $(OBJS)
 	$(LD) $(OBJS) -o $(INTDIR)/orbis-vault.elf $(LDFLAGS)
