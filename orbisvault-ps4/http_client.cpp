@@ -1,91 +1,82 @@
 #include "http_client.hpp"
 #include "native_http.hpp"
-
 #include "ps4_http_api.hpp"
-#include <stdio.h>
 
 namespace ov {
 
-static constexpr const char* USER_AGENT = "OrbisVault/0.1 (PlayStation 4)";
+static constexpr const char* USER_AGENT = "OrbisVaultSafe/0.2 (PS4)";
 
-HttpClient::HttpClient() {
-    ensureNativeHttp();
-}
-
-HttpClient::~HttpClient() {
-    // Runtime is shared with the streaming downloader and remains alive
-    // for the application lifetime. main() performs final shutdown.
-}
+HttpClient::HttpClient() = default;
+HttpClient::~HttpClient() = default;
 
 HttpResponse HttpClient::request(const char* method,
                                  const std::string& url,
                                  const std::string& body,
                                  const std::string& bearer) {
     HttpResponse result;
+    std::string initError;
 
-    if (!ensureNativeHttp()) {
-        result.error = "native HTTP initialization failed";
+    if (!ensureNativeHttp(&initError)) {
+        result.error = initError.empty() ? "native HTTP unavailable" : initError;
         return result;
     }
 
-    int tpl = sceHttpCreateTemplate(
+    auto& api = nativeHttpApi();
+
+    int tpl = api.httpCreateTemplate(
         nativeHttpContext(), USER_AGENT, OV_HTTP_VERSION_1_1, 1);
     if (tpl < 0) {
         result.error = "sceHttpCreateTemplate failed";
         return result;
     }
 
-    int conn = sceHttpCreateConnectionWithURL(tpl, url.c_str(), true);
+    int conn = api.httpCreateConnectionWithURL(tpl, url.c_str(), true);
     if (conn < 0) {
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteTemplate(tpl);
         result.error = "sceHttpCreateConnectionWithURL failed";
         return result;
     }
 
     const uint64_t contentLength = static_cast<uint64_t>(body.size());
-    int req = sceHttpCreateRequestWithURL2(
+    int req = api.httpCreateRequestWithURL2(
         conn, method, url.c_str(), contentLength);
 
     if (req < 0) {
-        sceHttpDeleteConnection(conn);
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteConnection(conn);
+        api.httpDeleteTemplate(tpl);
         result.error = "sceHttpCreateRequestWithURL2 failed";
         return result;
     }
 
-    sceHttpAddRequestHeader(req, "Accept", "application/json", 0);
-
-    if (!body.empty()) {
-        sceHttpAddRequestHeader(
-            req, "Content-Type", "application/json; charset=utf-8", 0);
-    }
+    api.httpAddRequestHeader(req, "Accept", "application/json", 0);
+    if (!body.empty())
+        api.httpAddRequestHeader(req, "Content-Type", "application/json; charset=utf-8", 0);
 
     std::string auth;
     if (!bearer.empty()) {
         auth = "Bearer " + bearer;
-        sceHttpAddRequestHeader(req, "Authorization", auth.c_str(), 0);
+        api.httpAddRequestHeader(req, "Authorization", auth.c_str(), 0);
     }
 
     const void* sendBody = body.empty() ? nullptr : body.data();
     const size_t sendSize = body.size();
 
-    int rc = sceHttpSendRequest(req, sendBody, sendSize);
+    int rc = api.httpSendRequest(req, sendBody, sendSize);
     if (rc < 0) {
         result.error = "sceHttpSendRequest failed";
-        sceHttpDeleteRequest(req);
-        sceHttpDeleteConnection(conn);
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteRequest(req);
+        api.httpDeleteConnection(conn);
+        api.httpDeleteTemplate(tpl);
         return result;
     }
 
     int32_t status = 0;
-    if (sceHttpGetStatusCode(req, &status) >= 0) {
+    if (api.httpGetStatusCode(req, &status) >= 0)
         result.status = static_cast<long>(status);
-    }
 
     char buffer[32 * 1024];
     for (;;) {
-        const int read = sceHttpReadData(req, buffer, sizeof(buffer));
+        const int read = api.httpReadData(req, buffer, sizeof(buffer));
         if (read < 0) {
             result.error = "sceHttpReadData failed";
             break;
@@ -94,9 +85,9 @@ HttpResponse HttpClient::request(const char* method,
         result.body.append(buffer, static_cast<size_t>(read));
     }
 
-    sceHttpDeleteRequest(req);
-    sceHttpDeleteConnection(conn);
-    sceHttpDeleteTemplate(tpl);
+    api.httpDeleteRequest(req);
+    api.httpDeleteConnection(conn);
+    api.httpDeleteTemplate(tpl);
     return result;
 }
 
