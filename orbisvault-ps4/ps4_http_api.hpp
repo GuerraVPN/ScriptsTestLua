@@ -3,10 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// The OpenOrbis Docker image currently ships an older orbis/Http.h where a
-// number of known SceHttp exports are declared as void foo().  This local
-// compatibility header supplies the ABI signatures used by the official
-// net_http sample without modifying the SDK installation.
+namespace ov {
 
 enum {
     OV_HTTP_METHOD_GET = 0,
@@ -14,45 +11,32 @@ enum {
     OV_HTTP_CONTENTLEN_EXIST = 0
 };
 
-static constexpr uint32_t OV_SYSMODULE_INTERNAL_HTTP = 0x8000000A;
-static constexpr uint32_t OV_SYSMODULE_INTERNAL_SSL  = 0x8000000B;
-static constexpr uint32_t OV_SYSMODULE_INTERNAL_NET  = 0x8000001C;
+struct NativeHttpApi {
+    bool loaded = false;
 
-extern "C" {
+    int32_t (*netInit)(void) = nullptr;
+    int32_t (*netPoolCreate)(const char*, int32_t, int32_t) = nullptr;
+    void (*netPoolDestroy)(int32_t) = nullptr;
 
-uint32_t sceSysmoduleLoadModuleInternal(uint32_t moduleId);
+    int32_t (*sslInit)(size_t) = nullptr;
+    void (*sslTerm)(int32_t) = nullptr;
 
-int32_t sceNetInit(void);
-int32_t sceNetPoolCreate(const char* name, int32_t size, int32_t flags);
-void sceNetPoolDestroy(int32_t poolId);
+    int32_t (*httpInit)(int32_t, int32_t, size_t) = nullptr;
+    int32_t (*httpTerm)(int32_t) = nullptr;
+    int32_t (*httpCreateTemplate)(int32_t, const char*, int32_t, int32_t) = nullptr;
+    int32_t (*httpDeleteTemplate)(int32_t) = nullptr;
+    int32_t (*httpCreateConnectionWithURL)(int32_t, const char*, bool) = nullptr;
+    int32_t (*httpDeleteConnection)(int32_t) = nullptr;
+    int32_t (*httpCreateRequestWithURL)(int32_t, int32_t, const char*, uint64_t) = nullptr;
+    int32_t (*httpCreateRequestWithURL2)(int32_t, const char*, const char*, uint64_t) = nullptr;
+    int32_t (*httpDeleteRequest)(int32_t) = nullptr;
+    int32_t (*httpAddRequestHeader)(int32_t, const char*, const char*, int32_t) = nullptr;
+    int32_t (*httpSendRequest)(int32_t, const void*, size_t) = nullptr;
+    int32_t (*httpGetStatusCode)(int32_t, int32_t*) = nullptr;
+    int32_t (*httpGetResponseContentLength)(int32_t, int32_t*, size_t*) = nullptr;
+    int32_t (*httpReadData)(int32_t, void*, uint32_t) = nullptr;
+};
 
-int32_t sceSslInit(size_t poolSize);
-void sceSslTerm(int32_t sslId);
+NativeHttpApi& nativeHttpApi();
 
-int32_t sceHttpInit(int32_t memId, int32_t sslId, size_t poolSize);
-int32_t sceHttpTerm(int32_t httpCtxId);
-
-int32_t sceHttpCreateTemplate(
-    int32_t httpCtxId, const char* userAgent, int32_t httpVer, int32_t proxy);
-int32_t sceHttpDeleteTemplate(int32_t templateId);
-
-int32_t sceHttpCreateConnectionWithURL(
-    int32_t templateId, const char* url, bool isKeepalive);
-int32_t sceHttpDeleteConnection(int32_t connId);
-
-int32_t sceHttpCreateRequestWithURL(
-    int32_t connId, int32_t method, const char* url, uint64_t contentLength);
-int32_t sceHttpCreateRequestWithURL2(
-    int32_t connId, const char* method, const char* url, uint64_t contentLength);
-int32_t sceHttpDeleteRequest(int32_t reqId);
-
-int32_t sceHttpAddRequestHeader(
-    int32_t id, const char* name, const char* value, int32_t mode);
-
-int32_t sceHttpSendRequest(int32_t reqId, const void* postData, size_t size);
-int32_t sceHttpGetStatusCode(int32_t reqId, int32_t* statusCode);
-int32_t sceHttpGetResponseContentLength(
-    int32_t reqId, int32_t* result, size_t* contentLength);
-int32_t sceHttpReadData(int32_t reqId, void* data, uint32_t size);
-
-} // extern "C"
+} // namespace ov
