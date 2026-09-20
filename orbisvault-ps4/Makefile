@@ -35,7 +35,7 @@ CFLAGS      := --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables -c $(EXTRA
 CXXFLAGS    := $(CFLAGS) -std=c++17 -isystem $(TOOLCHAIN)/include/c++/v1
 LDFLAGS     := -m elf_x86_64 -pie --script $(TOOLCHAIN)/link.x --eh-frame-hdr -L$(TOOLCHAIN)/lib $(LIBS) $(TOOLCHAIN)/lib/crt1.o
 
-_unused     := $(shell mkdir -p $(INTDIR) sce_sys)
+_unused     := $(shell mkdir -p $(INTDIR) sce_sys sce_sys/about)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
@@ -58,7 +58,7 @@ pkg: $(CONTENT_ID).pkg
 $(CONTENT_ID).pkg: pkg.gp4
 	$(TOOLCHAIN)/bin/$(CDIR)/PkgTool.Core pkg_build $< .
 
-pkg.gp4: eboot.bin sce_sys/param.sfo sce_sys/icon0.png $(LIBMODULES) $(ASSETS)
+pkg.gp4: eboot.bin sce_sys/about/right.sprx sce_sys/param.sfo sce_sys/icon0.png $(LIBMODULES) $(ASSETS)
 	$(TOOLCHAIN)/bin/$(CDIR)/create-gp4 -out $@ --content-id=$(CONTENT_ID) --files "$^"
 
 sce_sys/param.sfo: Makefile
