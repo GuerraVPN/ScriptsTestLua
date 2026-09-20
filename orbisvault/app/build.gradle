@@ -13,6 +13,13 @@ android {
         versionCode 4
         versionName '0.4.0'
     }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.test'
+            versionNameSuffix '-test'
+        }
+    }
 }
 
 dependencies {
