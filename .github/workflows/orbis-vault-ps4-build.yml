@@ -37,6 +37,16 @@ jobs:
           command -v clang++
           command -v ld.lld
 
+      - name: Fetch OpenOrbis right.sprx
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p orbisvault-ps4/sce_sys/about
+          curl -fL --retry 3 \
+            "https://raw.githubusercontent.com/OpenOrbis/OpenOrbis-PS4-Toolchain/v0.5.4/samples/piglet/sce_sys/about/right.sprx" \
+            -o orbisvault-ps4/sce_sys/about/right.sprx
+          test "$(stat -c%s orbisvault-ps4/sce_sys/about/right.sprx)" -eq 28800
+
       - name: Install OpenOrbis v0.5.4
         shell: bash
         run: |
@@ -62,6 +72,11 @@ jobs:
           cd orbisvault-ps4
           make clean
           make pkg.gp4
+
+      - name: Verify GP4 contains right.sprx
+        shell: bash
+        run: |
+          grep -q "sce_sys/about/right.sprx" orbisvault-ps4/pkg.gp4
 
       - name: Build PKG with compatible PkgTool runtime
         shell: bash
