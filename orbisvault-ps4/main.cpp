@@ -155,7 +155,6 @@ int main() {
 
     uint32_t bootAt = SDL_GetTicks();
     bool initialSyncTried = false;
-    bool installedStateTried = false;
 
     uint32_t lastPairCheck = 0;
     uint32_t lastRemotePoll = 0;
@@ -175,10 +174,9 @@ int main() {
             ui.setCatalog(&catalog);
         }
 
-        if (!installedStateTried && now - bootAt >= 1200) {
-            installedStateTried = true;
-            refreshInstalledState(installer, catalog);
-        }
+        // Compatibility mode deliberately does not touch AppInstUtil during
+        // startup. That privileged module is resolved only after an explicit
+        // install/status action, so a firmware mismatch cannot kill boot.
 
         const UiAction action = ui.update();
 
