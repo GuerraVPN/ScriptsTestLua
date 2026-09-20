@@ -91,14 +91,11 @@ AppUi::~AppUi() {
     if (controller_) SDL_JoystickClose(controller_);
     if (renderer_) SDL_DestroyRenderer(renderer_);
     if (window_) SDL_DestroyWindow(window_);
-    IMG_Quit();
     SDL_Quit();
 }
 
 bool AppUi::initialize() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0) return false;
-    IMG_Init(IMG_INIT_JPG | IMG_INIT_PNG | IMG_INIT_WEBP);
-
     window_ = SDL_CreateWindow(
         "Orbis Vault", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         W, H, 0);
@@ -164,21 +161,11 @@ void AppUi::drawProgress(int x, int y, int w, int h, int percent) {
     outlineRect(x,y,w,h,43,105,158);
 }
 
-SDL_Texture* AppUi::coverTexture(const TitleItem& title) {
-    auto it = coverTextures_.find(title.titleId);
-    if (it != coverTextures_.end()) return it->second;
-
-    const std::string path = coverPath(title);
-    SDL_Surface* img = IMG_Load(path.c_str());
-    if (!img) {
-        coverTextures_[title.titleId] = nullptr;
-        return nullptr;
-    }
-
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer_, img);
-    SDL_FreeSurface(img);
-    coverTextures_[title.titleId] = tex;
-    return tex;
+SDL_Texture* AppUi::coverTexture(const TitleItem&) {
+    // Compatibility build intentionally avoids SDL2_image. Covers are
+    // represented by the built-in PS4 placeholder until runtime compatibility
+    // is confirmed on hardware.
+    return nullptr;
 }
 
 void AppUi::freeTextures() {
