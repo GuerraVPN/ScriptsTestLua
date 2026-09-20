@@ -110,6 +110,22 @@ int main() {
     setvbuf(stdout, nullptr, _IONBF, 0);
     ensureDataDirs();
 
+    // SAFE BOOT: draw the interface before touching network or installer APIs.
+    AppUi ui;
+    if (!ui.initialize()) {
+        printf("Orbis Vault Safe: SDL initialization failed\n");
+        return 1;
+    }
+
+    Catalog catalog;
+    UiRuntimeStatus uiStatus;
+    uiStatus.online = false;
+    uiStatus.message = "ORBIS VAULT SAFE 0.2 - INICIANDO";
+    ui.setCatalog(&catalog);
+    ui.setStatus(uiStatus);
+    ui.render();
+    SDL_Delay(250);
+
     HttpClient http;
     CatalogClient catalogClient(http);
     CoverCache coverCache(http);
@@ -119,29 +135,27 @@ int main() {
     DeviceIdentity device;
     pairing.load(device);
 
-    Catalog catalog;
-    UiRuntimeStatus uiStatus;
-    syncCatalog(catalogClient, coverCache, catalog, uiStatus);
-
-    Installer installer;
-    const bool installerReady = installer.initialize();
-    if (installerReady) refreshInstalledState(installer, catalog);
-
-    InstallCoordinator coordinator(installer);
-
-    AppUi ui;
-    if (!ui.initialize()) {
-        printf("Orbis Vault: SDL initialization failed\n");
-        return 1;
+    // Load local cache first. No network is required for the first usable screen.
+    std::string cacheError;
+    if (catalogClient.loadCached(catalog, cacheError)) {
+        uiStatus.revision = catalog.revision;
+        uiStatus.message = "CACHE LOCAL CARREGADO";
+        ui.setCatalog(&catalog);
+        ui.setStatus(uiStatus);
+        ui.render();
     }
 
-    ui.setCatalog(&catalog);
+    Installer installer;
+    installer.initialize();
+    InstallCoordinator coordinator(installer);
+
     uiStatus.remotePaired = device.paired;
     uiStatus.remoteDeviceName = device.deviceName;
-
-    if (!installerReady)
-        uiStatus.message = "INSTALADOR NATIVO INDISPONIVEL NESTA BUILD";
     ui.setStatus(uiStatus);
+
+    uint32_t bootAt = SDL_GetTicks();
+    bool initialSyncTried = false;
+    bool installedStateTried = false;
 
     uint32_t lastPairCheck = 0;
     uint32_t lastRemotePoll = 0;
@@ -152,17 +166,30 @@ int main() {
     std::string installedRefreshFor;
 
     while (ui.running()) {
+        const uint32_t now = SDL_GetTicks();
+
+        // Delay optional services so a bad module can never prevent the UI boot.
+        if (!initialSyncTried && now - bootAt >= 700) {
+            initialSyncTried = true;
+            syncCatalog(catalogClient, coverCache, catalog, uiStatus);
+            ui.setCatalog(&catalog);
+        }
+
+        if (!installedStateTried && now - bootAt >= 1200) {
+            installedStateTried = true;
+            refreshInstalledState(installer, catalog);
+        }
+
         const UiAction action = ui.update();
 
-        if (action.type == UiActionType::Exit) {
+        if (action.type == UiActionType::Exit)
             break;
-        }
 
         if (action.type == UiActionType::RefreshCatalog) {
             InstallSnapshot job = coordinator.snapshot();
             if (!job.active) {
                 syncCatalog(catalogClient, coverCache, catalog, uiStatus);
-                if (installerReady) refreshInstalledState(installer, catalog);
+                refreshInstalledState(installer, catalog);
                 ui.setCatalog(&catalog);
             } else {
                 uiStatus.message = "AGUARDE O DOWNLOAD ATIVO";
@@ -172,9 +199,7 @@ int main() {
         if (action.type == UiActionType::InstallSelected &&
             action.titleIndex >= 0 &&
             action.titleIndex < static_cast<int>(catalog.titles.size())) {
-            if (!installerReady) {
-                uiStatus.message = "INSTALADOR NATIVO NAO INICIALIZADO";
-            } else if (coordinator.start(catalog.titles[action.titleIndex])) {
+            if (coordinator.start(catalog.titles[action.titleIndex])) {
                 installedRefreshFor.clear();
                 uiStatus.message = "INSTALACAO ADICIONADA";
             } else {
@@ -204,21 +229,18 @@ int main() {
             if (device.paired) {
                 uiStatus.message = "ESTE PS4 JA ESTA PAREADO";
             } else {
-                PairingResult result = pairing.start(device, "Orbis Vault PS4");
+                PairingResult result = pairing.start(device, "Orbis Vault PS4 Safe");
                 if (result.ok) {
                     uiStatus.pairingCode = result.code;
                     uiStatus.remoteDeviceName = device.deviceName;
                     uiStatus.message = "DIGITE O CODIGO NO APP ANDROID";
-                    lastPairCheck = SDL_GetTicks();
+                    lastPairCheck = now;
                 } else {
-                    uiStatus.message = "FALHA NO PAREAMENTO: " + result.error;
+                    uiStatus.message = "PAREAMENTO INDISPONIVEL: " + result.error;
                 }
             }
         }
 
-        const uint32_t now = SDL_GetTicks();
-
-        // While waiting for confirmation on Android, refresh pairing status.
         if (!device.paired &&
             !device.deviceId.empty() &&
             !uiStatus.pairingCode.empty() &&
@@ -232,8 +254,6 @@ int main() {
             lastPairCheck = now;
         }
 
-        // Poll every 3 seconds during a remote job so cancellation from the
-        // Android app is noticed quickly; otherwise use the normal interval.
         InstallSnapshot beforeRemote = coordinator.snapshot();
         const uint32_t remoteInterval =
             activeRemoteCommand != 0
@@ -280,7 +300,7 @@ int main() {
 
                         if (cmd.action == "SYNC_CATALOG") {
                             syncCatalog(catalogClient, coverCache, catalog, uiStatus);
-                            if (installerReady) refreshInstalledState(installer, catalog);
+                            refreshInstalledState(installer, catalog);
                             ui.setCatalog(&catalog);
                             remote.updateStatus(device, cmd.id, "COMPLETED", 100,
                                                 "Catalogo sincronizado", remoteError);
@@ -331,9 +351,8 @@ int main() {
                     }
                 }
 
-                if (!handled && commands.empty()) {
+                if (!handled && commands.empty())
                     remote.heartbeat(device, remoteError);
-                }
             }
             lastRemotePoll = now;
         }
@@ -388,7 +407,7 @@ int main() {
         SDL_Delay(16);
     }
 
-    coordinator.cancel();
+    coordinator.shutdown();
     installer.shutdown();
     shutdownNativeHttp();
     return 0;
