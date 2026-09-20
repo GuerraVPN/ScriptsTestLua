@@ -1,4 +1,4 @@
-name: Orbis Vault PS4 Build
+name: Orbis Vault PS4 Safe Build
 
 concurrency:
   group: orbis-vault-ps4-${{ github.ref }}
@@ -7,7 +7,7 @@ concurrency:
 on:
   push:
     branches:
-      - orbis-vault-ps4-010
+      - orbis-vault-ps4-safe-020
     paths:
       - 'orbisvault-ps4/**'
       - '.github/workflows/orbis-vault-ps4-build.yml'
@@ -107,7 +107,7 @@ jobs:
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: OrbisVault-PS4-v0.1
+          name: OrbisVault-PS4-v0.2-safe
           path: artifact/
           if-no-files-found: error
           retention-days: 7
