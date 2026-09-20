@@ -1,13 +1,13 @@
 # Orbis Vault PS4
 TITLE       := Orbis Vault
-VERSION     := 0.20
+VERSION     := 0.21
 TITLE_ID    := BREW00902
 CONTENT_ID  := IV0000-BREW00902_00-ORBISVAULTSAFE01
 
 # SAFE 0.2 links only libraries used by the official SDL sample.
 # Network, AppInstUtil and SystemService are loaded dynamically after the UI boots.
 EXTRAFLAGS := -include compat.hpp
-LIBS := -lc -lkernel -lc++ -lSceUserService -lSceVideoOut -lSceAudioOut -lScePad -lSceSysmodule -lSceFreeType -lSDL2 -lSDL2_image
+LIBS := -lc -lkernel -lc++ -lSceUserService -lSceVideoOut -lSceAudioOut -lScePad -lSDL2
 
 ASSETS      := $(wildcard assets/**/*)
 LIBMODULES  := $(wildcard sce_module/*)
