@@ -1,0 +1,62 @@
+name: Orbis Vault PS4 Diagnostic
+
+on:
+  push:
+    branches:
+      - orbis-vault-ps4-010
+    paths:
+      - 'orbisvault-ps4-diagnostic/**'
+      - '.github/workflows/orbis-vault-ps4-diagnostic.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host LLVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+
+      - name: Prepare diagnostic assets
+        run: |
+          mkdir -p orbisvault-ps4-diagnostic/sce_sys/about
+          cp orbisvault-ps4/sce_sys/icon0.png orbisvault-ps4-diagnostic/sce_sys/icon0.png
+          curl -fL --retry 3             "https://raw.githubusercontent.com/OpenOrbis/OpenOrbis-PS4-Toolchain/v0.5.4/samples/piglet/sce_sys/about/right.sprx"             -o orbisvault-ps4-diagnostic/sce_sys/about/right.sprx
+
+      - name: Install OpenOrbis v0.5.4
+        run: |
+          mkdir -p "$RUNNER_TEMP/openorbis"
+          curl -fL --retry 3             "https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz"             -o "$RUNNER_TEMP/openorbis.tar.gz"
+          tar -xzf "$RUNNER_TEMP/openorbis.tar.gz" -C "$RUNNER_TEMP/openorbis"
+          PKG_TOOL="$(find "$RUNNER_TEMP/openorbis" -type f -path '*/bin/linux/PkgTool.Core' -print -quit)"
+          SDK_ROOT="${PKG_TOOL%/bin/linux/PkgTool.Core}"
+          chmod +x "$SDK_ROOT"/bin/linux/* || true
+          echo "OO_PS4_TOOLCHAIN=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Build diagnostic GP4
+        run: |
+          cd orbisvault-ps4-diagnostic
+          make clean
+          make pkg.gp4
+
+      - name: Build diagnostic PKG
+        run: |
+          docker pull openorbisofficial/toolchain:latest
+          docker run --rm --user 0             -w /workspace/orbisvault-ps4-diagnostic             -v "$GITHUB_WORKSPACE:/workspace"             openorbisofficial/toolchain:latest             bash -lc "/lib/OpenOrbisSDK/bin/linux/PkgTool.Core pkg_build pkg.gp4 ."
+
+      - name: Collect
+        run: |
+          mkdir -p artifact
+          cp orbisvault-ps4-diagnostic/*.pkg artifact/OrbisVault-Diagnostic-v1.00.pkg
+          cd artifact
+          sha256sum *.pkg > SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OrbisVault-Diagnostic-v1.00
+          path: artifact/
+          retention-days: 7
