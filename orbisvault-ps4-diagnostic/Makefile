@@ -1,7 +1,7 @@
 TITLE       := Orbis Vault Diagnostic
 VERSION     := 1.00
 TITLE_ID    := BREW00911
-CONTENT_ID  := IV0000-BREW00911_00-ORBISVAULTDIAG001
+CONTENT_ID  := IV0000-BREW00911_00-ORBISVAULTDIAG01
 
 LIBS := -lc -lkernel -lc++ -lSceUserService -lSceVideoOut -lSceAudioOut -lScePad -lSDL2
 
