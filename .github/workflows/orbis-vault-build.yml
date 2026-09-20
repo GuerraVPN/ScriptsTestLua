@@ -45,17 +45,19 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build unsigned release APK
+      - name: Build Android test APK and unsigned release APK
         working-directory: orbisvault
-        run: gradle :app:assembleRelease --stacktrace
+        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
 
       - name: Prepare artifact
         run: |
           mkdir -p artifact/sign-tools/lib
+          cp orbisvault/app/build/outputs/apk/debug/app-debug.apk artifact/OrbisVaultAdmin-v0.4.0-test.apk
           cp orbisvault/app/build/outputs/apk/release/app-release-unsigned.apk artifact/OrbisVaultAdmin-v0.4.0-unsigned.apk
           cp "/usr/local/lib/android/sdk/build-tools/35.0.0/lib/apksigner.jar" artifact/sign-tools/lib/apksigner.jar
           cp "/usr/local/lib/android/sdk/build-tools/35.0.0/zipalign" artifact/sign-tools/zipalign
           chmod +x artifact/sign-tools/zipalign
+          sha256sum artifact/OrbisVaultAdmin-v0.4.0-test.apk > artifact/SHA256-test.txt
           sha256sum artifact/OrbisVaultAdmin-v0.4.0-unsigned.apk > artifact/SHA256-unsigned.txt
 
       - name: Upload build
