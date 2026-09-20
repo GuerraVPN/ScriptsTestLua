@@ -1,9 +1,9 @@
 #pragma once
-#include <stdint.h>
+#include <string>
 
 namespace ov {
 
-bool ensureNativeHttp();
+bool ensureNativeHttp(std::string* error = nullptr);
 int nativeHttpContext();
 void shutdownNativeHttp();
 
