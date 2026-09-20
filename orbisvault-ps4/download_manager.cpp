@@ -1,13 +1,13 @@
 #include "download_manager.hpp"
 #include "native_http.hpp"
-
 #include "ps4_http_api.hpp"
+
 #include <stdio.h>
 #include <sys/stat.h>
 
 namespace ov {
 
-static constexpr const char* USER_AGENT = "OrbisVault/0.1 (PlayStation 4)";
+static constexpr const char* USER_AGENT = "OrbisVaultSafe/0.2 (PS4)";
 
 static uint64_t localFileSize(const std::string& path) {
     struct stat st {};
@@ -27,80 +27,80 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
         out.error = "package URL is empty";
         return out;
     }
-    if (!ensureNativeHttp()) {
-        out.error = "native HTTP initialization failed";
+
+    std::string initError;
+    if (!ensureNativeHttp(&initError)) {
+        out.error = initError.empty() ? "native HTTP unavailable" : initError;
         return out;
     }
 
+    auto& api = nativeHttpApi();
     uint64_t existing = resume ? localFileSize(destination) : 0;
 
-    int tpl = sceHttpCreateTemplate(
+    int tpl = api.httpCreateTemplate(
         nativeHttpContext(), USER_AGENT, OV_HTTP_VERSION_1_1, 1);
     if (tpl < 0) {
         out.error = "sceHttpCreateTemplate failed";
         return out;
     }
 
-    int conn = sceHttpCreateConnectionWithURL(tpl, pkg.sourceUrl.c_str(), true);
+    int conn = api.httpCreateConnectionWithURL(tpl, pkg.sourceUrl.c_str(), true);
     if (conn < 0) {
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteTemplate(tpl);
         out.error = "sceHttpCreateConnectionWithURL failed";
         return out;
     }
 
-    int req = sceHttpCreateRequestWithURL(
+    int req = api.httpCreateRequestWithURL(
         conn, OV_HTTP_METHOD_GET, pkg.sourceUrl.c_str(), 0);
     if (req < 0) {
-        sceHttpDeleteConnection(conn);
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteConnection(conn);
+        api.httpDeleteTemplate(tpl);
         out.error = "sceHttpCreateRequestWithURL failed";
         return out;
     }
 
     if (existing > 0) {
         const std::string range = "bytes=" + std::to_string(existing) + "-";
-        sceHttpAddRequestHeader(req, "Range", range.c_str(), 0);
+        api.httpAddRequestHeader(req, "Range", range.c_str(), 0);
     }
 
-    int rc = sceHttpSendRequest(req, nullptr, 0);
+    int rc = api.httpSendRequest(req, nullptr, 0);
     if (rc < 0) {
         out.error = "sceHttpSendRequest failed";
-        sceHttpDeleteRequest(req);
-        sceHttpDeleteConnection(conn);
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteRequest(req);
+        api.httpDeleteConnection(conn);
+        api.httpDeleteTemplate(tpl);
         return out;
     }
 
     int32_t status = 0;
-    sceHttpGetStatusCode(req, &status);
+    api.httpGetStatusCode(req, &status);
     out.httpStatus = status;
 
     if (status != 200 && status != 206) {
         out.error = "HTTP " + std::to_string(status);
-        sceHttpDeleteRequest(req);
-        sceHttpDeleteConnection(conn);
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteRequest(req);
+        api.httpDeleteConnection(conn);
+        api.httpDeleteTemplate(tpl);
         return out;
     }
 
-    // A server that ignored Range returns 200. Restart instead of appending
-    // duplicate bytes.
     const bool continued = (existing > 0 && status == 206);
     if (!continued) existing = 0;
 
     FILE* file = fopen(destination.c_str(), continued ? "ab" : "wb");
     if (!file) {
         out.error = "cannot open destination";
-        sceHttpDeleteRequest(req);
-        sceHttpDeleteConnection(conn);
-        sceHttpDeleteTemplate(tpl);
+        api.httpDeleteRequest(req);
+        api.httpDeleteConnection(conn);
+        api.httpDeleteTemplate(tpl);
         return out;
     }
 
     int contentLengthType = 0;
     size_t responseLength = 0;
-    sceHttpGetResponseContentLength(
-        req, &contentLengthType, &responseLength);
+    api.httpGetResponseContentLength(req, &contentLengthType, &responseLength);
 
     const uint64_t total =
         contentLengthType == OV_HTTP_CONTENTLEN_EXIST
@@ -117,7 +117,7 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
             break;
         }
 
-        const int read = sceHttpReadData(req, buffer, sizeof(buffer));
+        const int read = api.httpReadData(req, buffer, sizeof(buffer));
         if (read < 0) {
             out.error = "sceHttpReadData failed";
             break;
@@ -127,8 +127,7 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
             break;
         }
 
-        const size_t written =
-            fwrite(buffer, 1, static_cast<size_t>(read), file);
+        const size_t written = fwrite(buffer, 1, static_cast<size_t>(read), file);
         if (written != static_cast<size_t>(read)) {
             out.error = "storage write failed";
             break;
@@ -136,18 +135,12 @@ DownloadResult DownloadManager::download(const PackageItem& pkg,
 
         downloaded += static_cast<uint64_t>(read);
         if (progress) progress(downloaded, total, 0.0);
-
-        if (shouldCancel && shouldCancel()) {
-            out.cancelled = true;
-            out.error = "cancelled";
-            break;
-        }
     }
 
     fclose(file);
-    sceHttpDeleteRequest(req);
-    sceHttpDeleteConnection(conn);
-    sceHttpDeleteTemplate(tpl);
+    api.httpDeleteRequest(req);
+    api.httpDeleteConnection(conn);
+    api.httpDeleteTemplate(tpl);
     return out;
 }
 
